@@ -12,8 +12,7 @@ func main() {
 	svc := service.NewService(repo)
 
 	m := http.NewServeMux()
-	m.HandleFunc(`POST /update/counter/{name}/{value}`, svc.UpdateCounter)
-	m.HandleFunc(`POST /update/gauge/{name}/{value}`, svc.UpdateGauge)
+	m.HandleFunc(`POST /update/{typeMetrics}/{name}/{value}`, svc.UpdateMetric)
 
 	err := http.ListenAndServe(`localhost:8080`, m)
 	if err != nil {
