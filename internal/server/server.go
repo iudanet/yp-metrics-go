@@ -34,10 +34,10 @@ func (s *service) UpdateMetric(w http.ResponseWriter, req *http.Request) {
 	case "gauge":
 		value, err := strconv.ParseFloat(rawValue, 64)
 		if err != nil {
-			http.Error(w, "invalid value", http.StatusBadRequest)
+			http.Error(w, "invalid gauge value", http.StatusBadRequest)
 			return
 		}
-		err = s.updateGauge(name, value)
+		err = s.storage.SetGauge(name, value)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -45,34 +45,18 @@ func (s *service) UpdateMetric(w http.ResponseWriter, req *http.Request) {
 	case "counter":
 		value, err := strconv.ParseInt(rawValue, 10, 64)
 		if err != nil {
-			http.Error(w, "invalid value", http.StatusBadRequest)
+			http.Error(w, "invalid counter value", http.StatusBadRequest)
 			return
 		}
-		err = s.updateCounter(name, value)
+		err = s.storage.SetCounter(name, value)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 	default:
-		http.Error(w, "invalid typeMetrics", http.StatusBadRequest)
+		http.Error(w, "invalid metric type", http.StatusBadRequest)
 		return
 	}
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
-}
-
-func (s *service) updateGauge(name string, value float64) error {
-	err := s.storage.SetGauge(name, value)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (s *service) updateCounter(name string, value int64) error {
-	err := s.storage.SetCounter(name, value)
-	if err != nil {
-		return err
-	}
-	return nil
 }
