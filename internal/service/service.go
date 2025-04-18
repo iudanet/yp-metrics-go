@@ -53,10 +53,10 @@ func (s *service) UpdateMetric(w http.ResponseWriter, req *http.Request) {
 		}
 	default:
 		http.Error(w, "invalid typeMetrics", http.StatusBadRequest)
+		return
 	}
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
-	return
 }
 
 func (s *service) updateGauge(name string, value float64) error {
