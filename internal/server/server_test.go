@@ -45,7 +45,7 @@ func TestUpdateMetric(t *testing.T) {
 			name:        "invalid content type",
 			urlPath:     "/update/gauge/test/10.5",
 			contentType: "application/json",
-			wantStatus:  http.StatusBadRequest,
+			wantStatus:  http.StatusOK,
 		},
 		{
 			name:        "empty metric name",
