@@ -5,7 +5,6 @@ import (
 	"log"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/iudanet/yp-metrics-go/internal/agent"
 	"github.com/iudanet/yp-metrics-go/internal/config"
@@ -18,11 +17,7 @@ func main() {
 	ctxStop, stop := signal.NotifyContext(ctxCancel, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	defer stop()
 
-	pollInterval := time.Duration(2)
-	reportInterval := time.Duration(10)
-	metricServerAddress := "localhost:8080"
-
-	cfg := config.NewAdminConfig(pollInterval, reportInterval, metricServerAddress)
+	cfg := config.NewAgentConfig()
 	stor := storage.NewStorage()
 
 	a := agent.NewAgent(cfg, stor)

@@ -14,11 +14,11 @@ import (
 
 type Agent struct {
 	memstats *runtime.MemStats
-	config   *config.AdminConfig
+	config   *config.AgentConfig
 	storage  storage.Repository
 }
 
-func NewAgent(cfg *config.AdminConfig, storage storage.Repository) *Agent {
+func NewAgent(cfg *config.AgentConfig, storage storage.Repository) *Agent {
 	agent := &Agent{
 		memstats: &runtime.MemStats{},
 		config:   cfg,
@@ -75,7 +75,7 @@ func (a *Agent) PollWorker() {
 	for {
 		a.GetMetrics()
 		log.Println("Metrics collected")
-		time.Sleep(a.config.PollInterval * time.Second)
+		time.Sleep(a.config.PollInterval)
 
 	}
 
@@ -110,7 +110,7 @@ func (a *Agent) ReportWorker() {
 			}
 
 		}
-		time.Sleep(a.config.ReportInterval * time.Second)
+		time.Sleep(a.config.ReportInterval)
 	}
 
 }

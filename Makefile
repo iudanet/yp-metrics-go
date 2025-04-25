@@ -20,3 +20,15 @@ test_iter3:: test_iter1 test_iter2 build
 	-source-path=. \
 	-agent-binary-path=cmd/agent/agent \
 	-binary-path=cmd/server/server
+
+# Задание переменных
+SERVER_PORT := 8899
+ADDRESS := localhost:$(SERVER_PORT)
+# test_iter1 test_iter2 test_iter3
+test_iter4:: build
+	TEMP_FILE=$$(mktemp /tmp/metricstest.XXXXXX) \
+	metricstest -test.v -test.run=^TestIteration4$$ \
+	 -agent-binary-path=cmd/agent/agent \
+	 -binary-path=cmd/server/server \
+	 -server-port=$(SERVER_PORT) \
+	 -source-path=.

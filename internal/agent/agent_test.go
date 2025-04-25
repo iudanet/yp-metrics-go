@@ -12,6 +12,24 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type TestAgentConfig struct {
+	PollInterval     time.Duration
+	ReportInterval   time.Duration
+	MetricServerHost string
+}
+
+func (c *TestAgentConfig) GetPollInterval() time.Duration {
+	return c.PollInterval
+}
+
+func (c *TestAgentConfig) GetReportInterval() time.Duration {
+	return c.ReportInterval
+}
+
+func (c *TestAgentConfig) GetMetricServerHost() string {
+	return c.MetricServerHost
+}
+
 func TestAgent(t *testing.T) {
 	// Создаем тестовый HTTP сервер
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -55,11 +73,13 @@ func TestAgent(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cfg := config.NewAdminConfig(
-				time.Duration(2),
-				time.Duration(10),
-				server.URL[7:], // Удаляем "http://" из адреса
-			)
+			cfg := &config.AgentConfig{
+				PollInterval:     2 * time.Second,
+				ReportInterval:   10 * time.Second,
+				MetricServerHost: server.URL[7:], // Удаляем "http://" из адреса
+			}
+			server_host := server.URL[7:]
+			cfg.MetricServerHost = server_host // Удаляем "http://" из адреса
 			store := storage.NewStorage()
 			agent := NewAgent(cfg, store)
 

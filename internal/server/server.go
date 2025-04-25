@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"text/template"
 
+	"github.com/iudanet/yp-metrics-go/internal/config"
 	"github.com/iudanet/yp-metrics-go/internal/storage"
 )
 
@@ -16,12 +17,13 @@ type Service interface {
 	GetIndex(w http.ResponseWriter, req *http.Request)
 }
 
-func NewService(storage storage.Repository) Service {
-	return &service{storage: storage}
+func NewService(storage storage.Repository, cfg *config.ServerConfig) Service {
+	return &service{storage: storage, config: cfg}
 }
 
 type service struct {
 	storage storage.Repository
+	config  *config.ServerConfig
 }
 type IndexData struct {
 	Counters map[string]int64

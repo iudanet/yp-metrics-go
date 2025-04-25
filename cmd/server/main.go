@@ -4,13 +4,15 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/iudanet/yp-metrics-go/internal/config"
 	"github.com/iudanet/yp-metrics-go/internal/server"
 	"github.com/iudanet/yp-metrics-go/internal/storage"
 )
 
 func main() {
 	storage := storage.NewStorage()
-	svc := server.NewService(storage)
+	cfg := config.NewServerConfig()
+	svc := server.NewService(storage, cfg)
 	_ = chi.NewRouter()
 	m := http.NewServeMux()
 	// m.HandleFunc(`POST /updater/{typeMetrics}/{name}/{value}`, svc.UpdateMetric)
@@ -20,7 +22,7 @@ func main() {
 	m.HandleFunc(`GET /value/{typeMetrics}/{name}`, svc.GetMetric)
 	m.HandleFunc(`GET /{$}`, svc.GetIndex)
 
-	err := http.ListenAndServe(`localhost:8080`, m)
+	err := http.ListenAndServe(cfg.MetricServerHost, m)
 	if err != nil {
 		panic(err)
 	}
