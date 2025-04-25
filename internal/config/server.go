@@ -9,9 +9,16 @@ type ServerConfig struct {
 }
 
 func NewServerConfig() *ServerConfig {
-	cfg := &ServerConfig{}
+	return &ServerConfig{
+		MetricServerHost: "localhost:8080",
+	}
+}
 
-	flag.StringVar(&cfg.MetricServerHost, "a", "localhost:8080", "server address")
+func ParseServerFlags() *ServerConfig {
+	cfg := NewServerConfig()
+
+	flag.StringVar(&cfg.MetricServerHost, "a", cfg.MetricServerHost, "server address")
 	flag.Parse()
+
 	return cfg
 }

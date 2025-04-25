@@ -78,8 +78,8 @@ func TestAgent(t *testing.T) {
 				ReportInterval:   10 * time.Second,
 				MetricServerHost: server.URL[7:], // Удаляем "http://" из адреса
 			}
-			server_host := server.URL[7:]
-			cfg.MetricServerHost = server_host // Удаляем "http://" из адреса
+			serverHost := server.URL[7:]
+			cfg.MetricServerHost = serverHost // Удаляем "http://" из адреса
 			store := storage.NewStorage()
 			agent := NewAgent(cfg, store)
 

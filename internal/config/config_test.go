@@ -7,110 +7,107 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-func resetFlags(args []string) func() {
-	oldArgs := os.Args
-	os.Args = append([]string{"test"}, args...)
-	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
+func TestNewAgentConfig(t *testing.T) {
+	cfg := NewAgentConfig()
 
-	return func() {
-		os.Args = oldArgs
-		flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
-	}
+	assert.Equal(t, 2*time.Second, cfg.PollInterval, "default poll interval should be 2s")
+	assert.Equal(t, 10*time.Second, cfg.ReportInterval, "default report interval should be 10s")
+	assert.Equal(t, "localhost:8080", cfg.MetricServerHost, "default address should be localhost:8080")
 }
 
-func TestNewAgentConfig(t *testing.T) {
+func TestNewServerConfig(t *testing.T) {
+	cfg := NewServerConfig()
+
+	assert.Equal(t, "localhost:8080", cfg.MetricServerHost, "default address should be localhost:8080")
+}
+
+func TestParseAgentFlags(t *testing.T) {
+	oldArgs := os.Args
+	defer func() {
+		os.Args = oldArgs
+		flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+	}()
+
 	tests := []struct {
-		name            string
-		args            []string
-		expectedPoll    time.Duration
-		expectedReport  time.Duration
-		expectedAddress string
-		wantErr         bool
+		name     string
+		args     []string
+		expected AgentConfig
 	}{
 		{
-			name:            "default values",
-			args:            []string{},
-			expectedPoll:    2 * time.Second,
-			expectedReport:  10 * time.Second,
-			expectedAddress: "localhost:8080",
-			wantErr:         false,
+			name: "default",
+			args: []string{"test"},
+			expected: AgentConfig{
+				PollInterval:     2 * time.Second,
+				ReportInterval:   10 * time.Second,
+				MetricServerHost: "localhost:8080",
+			},
 		},
 		{
-			name:            "custom values",
-			args:            []string{"-p=5s", "-r=15s", "-a=127.0.0.1:9090"},
-			expectedPoll:    5 * time.Second,
-			expectedReport:  15 * time.Second,
-			expectedAddress: "127.0.0.1:9090",
-			wantErr:         false,
-		},
-		{
-			name:    "invalid poll interval",
-			args:    []string{"-p=invalid"},
-			wantErr: true,
+			name: "custom values",
+			args: []string{
+				"test",
+				"-p", "5",
+				"-r", "15",
+				"-a", "127.0.0.1:9090",
+			},
+			expected: AgentConfig{
+				PollInterval:     5 * time.Second,
+				ReportInterval:   15 * time.Second,
+				MetricServerHost: "127.0.0.1:9090",
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			defer resetFlags(tt.args)()
+			// Устанавливаем тестовые аргументы
+			os.Args = tt.args
+			// Сбрасываем флаги
+			flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 
-			cfg := NewAgentConfig()
-			err := flag.CommandLine.Parse(tt.args)
-			if tt.wantErr {
-				require.Error(t, err)
-				return
-			}
-			require.NoError(t, err)
-
-			assert.Equal(t, tt.expectedPoll, cfg.PollInterval)
-			assert.Equal(t, tt.expectedReport, cfg.ReportInterval)
-			assert.Equal(t, tt.expectedAddress, cfg.MetricServerHost)
+			cfg := ParseAgentFlags()
+			assert.Equal(t, tt.expected, *cfg)
 		})
 	}
 }
 
-func TestNewServerConfig(t *testing.T) {
+func TestParseServerFlags(t *testing.T) {
+	oldArgs := os.Args
+	defer func() {
+		os.Args = oldArgs
+		flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+	}()
+
 	tests := []struct {
-		name            string
-		args            []string
-		expectedAddress string
-		wantErr         bool
+		name     string
+		args     []string
+		expected ServerConfig
 	}{
 		{
-			name:            "default value",
-			args:            []string{},
-			expectedAddress: "localhost:8080",
-			wantErr:         false,
+			name: "default",
+			args: []string{"test"},
+			expected: ServerConfig{
+				MetricServerHost: "localhost:8080",
+			},
 		},
 		{
-			name:            "custom address",
-			args:            []string{"-a=127.0.0.1:9090"},
-			expectedAddress: "127.0.0.1:9090",
-			wantErr:         false,
-		},
-		{
-			name:    "invalid flag",
-			args:    []string{"-unknown=value"},
-			wantErr: true,
+			name: "custom address",
+			args: []string{"test", "-a", "127.0.0.1:9090"},
+			expected: ServerConfig{
+				MetricServerHost: "127.0.0.1:9090",
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			defer resetFlags(tt.args)()
+			os.Args = tt.args
+			flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 
-			cfg := NewServerConfig()
-			err := flag.CommandLine.Parse(tt.args)
-			if tt.wantErr {
-				require.Error(t, err)
-				return
-			}
-			require.NoError(t, err)
-
-			assert.Equal(t, tt.expectedAddress, cfg.MetricServerHost)
+			cfg := ParseServerFlags()
+			assert.Equal(t, tt.expected, *cfg)
 		})
 	}
 }

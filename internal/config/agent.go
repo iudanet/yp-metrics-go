@@ -12,11 +12,24 @@ type AgentConfig struct {
 }
 
 func NewAgentConfig() *AgentConfig {
-	cfg := &AgentConfig{}
+	return &AgentConfig{
+		PollInterval:     2 * time.Second,
+		ReportInterval:   10 * time.Second,
+		MetricServerHost: "localhost:8080",
+	}
+}
 
-	flag.DurationVar(&cfg.PollInterval, "p", 2*time.Second, "poll interval")
-	flag.DurationVar(&cfg.ReportInterval, "r", 10*time.Second, "report interval")
-	flag.StringVar(&cfg.MetricServerHost, "a", "localhost:8080", "server address")
+func ParseAgentFlags() *AgentConfig {
+	cfg := NewAgentConfig()
+
+	pollInterval := flag.Int("p", 2, "poll interval seconds")
+	reportInterval := flag.Int("r", 10, "report interval seconds")
+	flag.StringVar(&cfg.MetricServerHost, "a", cfg.MetricServerHost, "server address")
+
 	flag.Parse()
+
+	cfg.PollInterval = time.Duration(*pollInterval) * time.Second
+	cfg.ReportInterval = time.Duration(*reportInterval) * time.Second
+
 	return cfg
 }

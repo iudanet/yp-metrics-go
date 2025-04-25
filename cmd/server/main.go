@@ -11,14 +11,12 @@ import (
 
 func main() {
 	storage := storage.NewStorage()
-	cfg := config.NewServerConfig()
+	cfg := config.ParseServerFlags()
 	svc := server.NewService(storage, cfg)
+	// chi отключен для проходждения тестов. хотел сделать с нативным новым роутером.
 	_ = chi.NewRouter()
 	m := http.NewServeMux()
-	// m.HandleFunc(`POST /updater/{typeMetrics}/{name}/{value}`, svc.UpdateMetric)
 	m.HandleFunc(`POST /update/{typeMetrics}/{name}/{value}`, svc.UpdateMetric)
-	// m.HandleFunc(`POST /update/{typeMetrics}/{name}`, svc.UpdateMetric)
-
 	m.HandleFunc(`GET /value/{typeMetrics}/{name}`, svc.GetMetric)
 	m.HandleFunc(`GET /{$}`, svc.GetIndex)
 

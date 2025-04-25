@@ -17,7 +17,7 @@ func main() {
 	ctxStop, stop := signal.NotifyContext(ctxCancel, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	defer stop()
 
-	cfg := config.NewAgentConfig()
+	cfg := config.ParseAgentFlags()
 	stor := storage.NewStorage()
 
 	a := agent.NewAgent(cfg, stor)
