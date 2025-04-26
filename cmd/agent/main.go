@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"os"
 	"os/signal"
 	"syscall"
 
@@ -17,7 +18,11 @@ func main() {
 	ctxStop, stop := signal.NotifyContext(ctxCancel, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	defer stop()
 
-	cfg := config.ParseAgentFlags()
+	cfg, err := config.ParseAgentFlags()
+	if err != nil {
+		log.Printf("failed to parse agent flags: %v", err)
+		os.Exit(1)
+	}
 	stor := storage.NewStorage()
 
 	a := agent.NewAgent(cfg, stor)

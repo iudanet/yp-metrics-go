@@ -1,4 +1,5 @@
-
+RANDOM_PORT:=$(shell random unused-port)
+SERVER_PORT=$(RANDOM_PORT)
 
 build-agent::
 	go build -o cmd/agent/agent cmd/agent/main.go
@@ -21,21 +22,26 @@ test_iter3::build test_iter1 test_iter2
 	-agent-binary-path=cmd/agent/agent \
 	-binary-path=cmd/server/server
 
-# Задание переменных
-# SERVER_PORT := 8899
-# ADDRESS := localhost:$(SERVER_PORT)
-# test_iter1 test_iter2 test_iter3
-SERVER_PORT=$(shell random unused-port)
-TEMP_FILE=$(shell random tempfile)
+
 test_iter4:: build test_iter1 test_iter2 test_iter3
-	SERVER_PORT=$$(random unused-port) \
+	SERVER_PORT=$(SERVER_PORT) \
 	ADDRESS="localhost:$(SERVER_PORT)" \
-	TEMP_FILE=$(TEMP_FILE) \
+	TEMP_FILE=$(shell random tempfile) \
 	metricstest -test.v -test.run=^TestIteration4$ \
 	  -agent-binary-path=cmd/agent/agent \
 	  -binary-path=cmd/server/server \
 	  -server-port=$(SERVER_PORT) \
 	  -source-path=.
+
+test_iter5::  build test_iter1 test_iter2 test_iter3 test_iter4
+	SERVER_PORT=$(SERVER_PORT)\
+	ADDRESS="localhost:$(SERVER_PORT)" \
+    	TEMP_FILE=$(shell random tempfile) \
+    	metricstest -test.v -test.run=^TestIteration5$ \
+    	-agent-binary-path=cmd/agent/agent \
+    	-binary-path=cmd/server/server \
+    	-server-port=$(SERVER_PORT) \
+    	-source-path=.
 
 
 test::

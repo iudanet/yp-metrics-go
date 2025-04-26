@@ -2,6 +2,7 @@ package config
 
 import (
 	"flag"
+	"os"
 )
 
 type ServerConfig struct {
@@ -19,6 +20,10 @@ func ParseServerFlags() *ServerConfig {
 
 	flag.StringVar(&cfg.MetricServerHost, "a", cfg.MetricServerHost, "server address")
 	flag.Parse()
+	envADDRESS := os.Getenv("ADDRESS")
+	if envADDRESS != "" {
+		cfg.MetricServerHost = envADDRESS
+	}
 
 	return cfg
 }

@@ -2,34 +2,58 @@ package config
 
 import (
 	"flag"
-	"time"
+	"fmt"
+	"os"
+	"strconv"
 )
 
 type AgentConfig struct {
-	ReportInterval   time.Duration
-	PollInterval     time.Duration
+	ReportInterval   int
+	PollInterval     int
 	MetricServerHost string
 }
 
 func NewAgentConfig() *AgentConfig {
 	return &AgentConfig{
-		PollInterval:     2 * time.Second,
-		ReportInterval:   10 * time.Second,
+		PollInterval:     2,
+		ReportInterval:   10,
 		MetricServerHost: "localhost:8080",
 	}
 }
 
-func ParseAgentFlags() *AgentConfig {
+func ParseAgentFlags() (*AgentConfig, error) {
 	cfg := NewAgentConfig()
 
-	pollInterval := flag.Int("p", 2, "poll interval seconds")
-	reportInterval := flag.Int("r", 10, "report interval seconds")
+	flag.IntVar(&cfg.PollInterval, "p", 2, "poll interval seconds")
+	flag.IntVar(&cfg.ReportInterval, "r", 10, "report interval seconds")
 	flag.StringVar(&cfg.MetricServerHost, "a", cfg.MetricServerHost, "server address")
 
 	flag.Parse()
 
-	cfg.PollInterval = time.Duration(*pollInterval) * time.Second
-	cfg.ReportInterval = time.Duration(*reportInterval) * time.Second
+	envADDRESS := os.Getenv("ADDRESS")
+	if envADDRESS != "" {
+		cfg.MetricServerHost = envADDRESS
+	}
+	envReportInterval := os.Getenv("REPORT_INTERVAL")
+	if envReportInterval != "" {
+		r, err := strconv.Atoi(envReportInterval)
+		if err != nil {
+			fmt.Println("Ошибка env REPORT_INTERVAL:", err)
+			return nil, err
+		}
 
-	return cfg
+		cfg.ReportInterval = r
+	}
+
+	envPollInterval := os.Getenv("POLL_INTERVAL")
+	if envPollInterval != "" {
+		p, err := strconv.Atoi(envPollInterval)
+		if err != nil {
+			fmt.Println("Ошибка env POLL_INTERVAL:", err)
+			return nil, err
+		}
+		cfg.PollInterval = p
+	}
+
+	return cfg, nil
 }

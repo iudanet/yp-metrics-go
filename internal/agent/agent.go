@@ -74,8 +74,7 @@ func (a *Agent) memStatsMapper() {
 func (a *Agent) PollWorker() {
 	for {
 		a.GetMetrics()
-		log.Println("Metrics collected")
-		time.Sleep(a.config.PollInterval)
+		time.Sleep(time.Duration(a.config.PollInterval))
 
 	}
 
@@ -110,7 +109,7 @@ func (a *Agent) ReportWorker() {
 			}
 
 		}
-		time.Sleep(a.config.ReportInterval)
+		time.Sleep(time.Duration(a.config.ReportInterval) * time.Second)
 	}
 
 }

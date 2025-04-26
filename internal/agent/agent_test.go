@@ -74,8 +74,8 @@ func TestAgent(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := &config.AgentConfig{
-				PollInterval:     2 * time.Second,
-				ReportInterval:   10 * time.Second,
+				PollInterval:     2,
+				ReportInterval:   10,
 				MetricServerHost: server.URL[7:], // Удаляем "http://" из адреса
 			}
 			serverHost := server.URL[7:]
