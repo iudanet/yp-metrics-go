@@ -120,8 +120,7 @@ func (a *Agent) PushCounter(name string, value int64) error {
 	// Content-Type: text/plain
 	req, err := http.Post(fmt.Sprintf("http://%s/update/%s/%s/%d", a.config.MetricServerHost, "counter", name, value), "text/plain", nil)
 	if err != nil {
-		log.Println(err)
-		return err
+		return fmt.Errorf("unable to send request to server: %w", err)
 	}
 	defer req.Body.Close()
 	if req.StatusCode != http.StatusOK {
@@ -138,8 +137,7 @@ func (a *Agent) PushGauge(name string, value float64) error {
 	// Content-Type: text/plain
 	req, err := http.Post(fmt.Sprintf("http://%s/update/%s/%s/%f", a.config.MetricServerHost, "gauge", name, value), "text/plain", nil)
 	if err != nil {
-		log.Println(err)
-		return err
+		return fmt.Errorf("unable to send request to server: %w", err)
 	}
 	defer req.Body.Close()
 	if req.StatusCode != http.StatusOK {
