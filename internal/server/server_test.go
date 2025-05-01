@@ -19,37 +19,37 @@ func TestUpdateMetric(t *testing.T) {
 		wantStatus  int
 	}{
 		{
-			name:        "valid gauge metric",
+			name:        "valid_gauge_metric",
 			urlPath:     "/update/gauge/test/10.5",
 			contentType: "text/plain",
 			wantStatus:  http.StatusOK,
 		},
 		{
-			name:        "valid counter metric",
+			name:        "valid_counter_metric",
 			urlPath:     "/update/counter/test/10",
 			contentType: "text/plain",
 			wantStatus:  http.StatusOK,
 		},
 		{
-			name:        "invalid metric type",
+			name:        "invalid_metric_type",
 			urlPath:     "/update/invalid/test/10",
 			contentType: "text/plain",
 			wantStatus:  http.StatusBadRequest,
 		},
 		{
-			name:        "invalid gauge value",
+			name:        "invalid_gauge_value",
 			urlPath:     "/update/gauge/test/invalid",
 			contentType: "text/plain",
 			wantStatus:  http.StatusBadRequest,
 		},
 		{
-			name:        "invalid content type",
+			name:        "invalid_content_type",
 			urlPath:     "/update/gauge/test/10.5",
 			contentType: "application/json",
 			wantStatus:  http.StatusOK,
 		},
 		{
-			name:        "empty metric name",
+			name:        "empty_metric_name",
 			urlPath:     "/update/gauge//10.5",
 			contentType: "text/plain",
 			wantStatus:  http.StatusMovedPermanently,
@@ -97,13 +97,13 @@ func TestUpdateMetricSuccess(t *testing.T) {
 		value      string
 	}{
 		{
-			name:       "gauge update",
+			name:       "gauge_update",
 			metricType: "gauge",
 			metricName: "testGauge",
 			value:      "123.45",
 		},
 		{
-			name:       "counter update",
+			name:       "counter_update",
 			metricType: "counter",
 			metricName: "testCounter",
 			value:      "123",

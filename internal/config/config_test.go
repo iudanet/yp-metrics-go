@@ -36,7 +36,7 @@ func TestParseServerFlags_Environment(t *testing.T) {
 		expected ServerConfig
 	}{
 		{
-			name: "env overrides default",
+			name: "env_overrides_default",
 			envVars: map[string]string{
 				"ADDRESS": "localhost:9090",
 			},
@@ -45,7 +45,7 @@ func TestParseServerFlags_Environment(t *testing.T) {
 			},
 		},
 		{
-			name:    "no env vars",
+			name:    "no_env_vars",
 			envVars: map[string]string{},
 			expected: ServerConfig{
 				MetricServerHost: "localhost:8080",

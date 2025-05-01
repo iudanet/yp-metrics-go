@@ -42,7 +42,7 @@ func TestAgent(t *testing.T) {
 		fn   func(t *testing.T, a *Agent)
 	}{
 		{
-			name: "test metrics collection",
+			name: "test_metrics_collection",
 			fn: func(t *testing.T, a *Agent) {
 				a.GetMetrics()
 
@@ -56,16 +56,16 @@ func TestAgent(t *testing.T) {
 			},
 		},
 		{
-			name: "test push counter",
+			name: "test_push_counter",
 			fn: func(t *testing.T, a *Agent) {
 				err := a.PushCounter("test", 10)
 				assert.NoError(t, err)
 			},
 		},
 		{
-			name: "test push gauge",
+			name: "test_push_gauge",
 			fn: func(t *testing.T, a *Agent) {
-				err := a.PushGouge("test", 10.5)
+				err := a.PushGauge("test", 10.5)
 				assert.NoError(t, err)
 			},
 		},

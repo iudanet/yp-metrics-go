@@ -13,7 +13,7 @@ func TestMemStorage(t *testing.T) {
 		fn   func(t *testing.T, s Repository)
 	}{
 		{
-			name: "test counter operations",
+			name: "test_counter_operations",
 			fn: func(t *testing.T, s Repository) {
 				// Set counter
 				err := s.SetCounter("test", 10)
@@ -30,7 +30,7 @@ func TestMemStorage(t *testing.T) {
 			},
 		},
 		{
-			name: "test gauge operations",
+			name: "test_gauge_operations",
 			fn: func(t *testing.T, s Repository) {
 				// Set gauge
 				err := s.SetGauge("test", 10.5)
@@ -43,7 +43,7 @@ func TestMemStorage(t *testing.T) {
 			},
 		},
 		{
-			name: "test concurrent access",
+			name: "test_concurrent_access",
 			fn: func(t *testing.T, s Repository) {
 				// Simulate concurrent access
 				go func() {

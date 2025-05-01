@@ -83,7 +83,6 @@ func (a *Agent) ReportWorker() {
 	for {
 		counter, err := a.storage.GetMapCounter()
 		if err != nil {
-			// Обработайте ошибку здесь
 			log.Println("Ошибка получения счетчика:", err)
 			continue
 		}
@@ -97,12 +96,11 @@ func (a *Agent) ReportWorker() {
 		}
 		gaugeMap, err := a.storage.GetMapGauge()
 		if err != nil {
-			// Обработайте ошибку здесь
 			log.Println("Ошибка получения счетчика:", err)
 			continue
 		}
 		for nameGauge, valueGauge := range gaugeMap {
-			err = a.PushGouge(nameGauge, valueGauge)
+			err = a.PushGauge(nameGauge, valueGauge)
 			if err != nil {
 				log.Println(err)
 				continue
@@ -131,7 +129,7 @@ func (a *Agent) PushCounter(name string, value int64) error {
 	return nil
 }
 
-func (a *Agent) PushGouge(name string, value float64) error {
+func (a *Agent) PushGauge(name string, value float64) error {
 	//	POST /update/gauge/someMetric/527 HTTP/1.1
 	//
 	// Host: localhost:8080
