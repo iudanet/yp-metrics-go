@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -124,7 +125,7 @@ func (a *Agent) PushCounter(name string, value int64) error {
 	}
 	defer req.Body.Close()
 	if req.StatusCode != http.StatusOK {
-		log.Println("Failed to push counter metric:", req.Status)
+		return errors.New(fmt.Sprintf("failed to push counter metric: %s", req.Status))
 	}
 	return nil
 }
@@ -142,7 +143,7 @@ func (a *Agent) PushGauge(name string, value float64) error {
 	}
 	defer req.Body.Close()
 	if req.StatusCode != http.StatusOK {
-		log.Println("Failed to push gauge metric:", req.Status)
+		return errors.New(fmt.Sprintf("failed to push counter metric: %s", req.Status))
 	}
 	return nil
 }

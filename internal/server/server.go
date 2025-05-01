@@ -11,17 +11,11 @@ import (
 	"github.com/iudanet/yp-metrics-go/internal/storage"
 )
 
-type Service interface {
-	UpdateMetric(w http.ResponseWriter, req *http.Request)
-	GetMetric(w http.ResponseWriter, req *http.Request)
-	GetIndex(w http.ResponseWriter, req *http.Request)
+func NewService(storage storage.Repository, cfg *config.ServerConfig) *Service {
+	return &Service{storage: storage, config: cfg}
 }
 
-func NewService(storage storage.Repository, cfg *config.ServerConfig) Service {
-	return &service{storage: storage, config: cfg}
-}
-
-type service struct {
+type Service struct {
 	storage storage.Repository
 	config  *config.ServerConfig
 }
@@ -30,12 +24,7 @@ type IndexData struct {
 	Gauges   map[string]float64
 }
 
-func (s *service) UpdateMetric(w http.ResponseWriter, req *http.Request) {
-	// if req.Header.Get("Content-Type") != "text/plain" {
-	// 	http.Error(w, "invalid content type", http.StatusBadRequest)
-	// 	return
-	// }
-
+func (s *Service) UpdateMetric(w http.ResponseWriter, req *http.Request) {
 	typeMetrics := req.PathValue("typeMetrics")
 	name := req.PathValue("name")
 	rawValue := req.PathValue("value")
@@ -71,7 +60,7 @@ func (s *service) UpdateMetric(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (s *service) GetMetric(w http.ResponseWriter, req *http.Request) {
+func (s *Service) GetMetric(w http.ResponseWriter, req *http.Request) {
 	typeMetrics := req.PathValue("typeMetrics")
 	name := req.PathValue("name")
 
@@ -96,7 +85,7 @@ func (s *service) GetMetric(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (s *service) GetIndex(w http.ResponseWriter, r *http.Request) {
+func (s *Service) GetIndex(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
 		http.Error(w, "invalid metric type", http.StatusBadRequest)
 		return
