@@ -46,11 +46,11 @@ func TestAgent(t *testing.T) {
 			fn: func(t *testing.T, a *Agent) {
 				a.GetMetrics()
 
-				gauges, err := a.storage.GetMapGauge()
+				gauges, err := a.reader.GetMapGauge()
 				require.NoError(t, err)
 				assert.NotEmpty(t, gauges)
 
-				counters, err := a.storage.GetMapCounter()
+				counters, err := a.reader.GetMapCounter()
 				require.NoError(t, err)
 				assert.Equal(t, int64(1), counters["PollCount"])
 			},

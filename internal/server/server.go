@@ -12,11 +12,16 @@ import (
 )
 
 func NewService(storage storage.Repository, cfg *config.ServerConfig) *service {
-	return &service{storage: storage, config: cfg}
+	return &service{
+		storage: storage,
+		viewer:  storage,
+		config:  cfg,
+	}
 }
 
 type service struct {
-	storage storage.Repository
+	storage storage.MetricWriter
+	viewer  storage.MetricReader
 	config  *config.ServerConfig
 }
 type IndexData struct {
@@ -66,14 +71,14 @@ func (s *service) GetMetric(w http.ResponseWriter, req *http.Request) {
 
 	switch typeMetrics {
 	case "gauge":
-		value, err := s.storage.GetGauge(name)
+		value, err := s.viewer.GetGauge(name)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
 		}
 		fmt.Fprint(w, strconv.FormatFloat(value, 'f', -1, 64))
 	case "counter":
-		value, err := s.storage.GetCounter(name)
+		value, err := s.viewer.GetCounter(name)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
@@ -90,12 +95,12 @@ func (s *service) GetIndex(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid metric type", http.StatusBadRequest)
 		return
 	}
-	counters, err := s.storage.GetMapCounter()
+	counters, err := s.viewer.GetMapCounter()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	gauges, err := s.storage.GetMapGauge()
+	gauges, err := s.viewer.GetMapGauge()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
