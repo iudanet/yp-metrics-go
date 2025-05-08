@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/iudanet/yp-metrics-go/internal/config"
+	"github.com/iudanet/yp-metrics-go/internal/logger"
 	"github.com/iudanet/yp-metrics-go/internal/storage"
 	"github.com/stretchr/testify/assert"
 )
@@ -58,11 +59,14 @@ func TestUpdateMetric(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			newLogger, err := logger.New("Info")
+			assert.NoError(t, err)
+
 			store := storage.NewStorage()
 			cfg := &config.ServerConfig{
 				MetricServerHost: "localhost:8080",
 			}
-			svc := NewService(store, cfg)
+			svc := NewService(store, cfg, newLogger)
 
 			req := httptest.NewRequest(http.MethodPost, tt.urlPath, nil)
 			req.Header.Set("Content-Type", tt.contentType)
@@ -88,7 +92,10 @@ func TestUpdateMetric(t *testing.T) {
 func TestUpdateMetricSuccess(t *testing.T) {
 	store := storage.NewStorage()
 	cfg := config.NewServerConfig()
-	svc := NewService(store, cfg)
+	newLogger, err := logger.New("Info")
+	assert.NoError(t, err)
+
+	svc := NewService(store, cfg, newLogger)
 
 	tests := []struct {
 		name       string

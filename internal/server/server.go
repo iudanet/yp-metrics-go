@@ -9,13 +9,15 @@ import (
 
 	"github.com/iudanet/yp-metrics-go/internal/config"
 	"github.com/iudanet/yp-metrics-go/internal/storage"
+	"go.uber.org/zap"
 )
 
-func NewService(storage storage.Repository, cfg *config.ServerConfig) *service {
+func NewService(storage storage.Repository, cfg *config.ServerConfig, logger *zap.Logger) *service {
 	return &service{
 		storage: storage,
 		viewer:  storage,
 		config:  cfg,
+		logger:  logger,
 	}
 }
 
@@ -23,6 +25,7 @@ type service struct {
 	storage storage.MetricWriter
 	viewer  storage.MetricReader
 	config  *config.ServerConfig
+	logger  *zap.Logger
 }
 type IndexData struct {
 	Counters map[string]int64

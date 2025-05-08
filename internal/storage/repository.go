@@ -2,6 +2,7 @@ package storage
 
 import (
 	"errors"
+	"maps"
 	"sync"
 
 	"github.com/iudanet/yp-metrics-go/internal/utils"
@@ -86,7 +87,10 @@ func (m *memStorage) GetMapCounter() (map[string]int64, error) {
 func (m *memStorage) GetMapGauge() (map[string]float64, error) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
-	return m.gauge, nil
+	// return map возвращает ссылку. надо ккопировать map или обрабатывать range через мютекс
+	copyMapGauge := make(map[string]float64)
+	maps.Copy(copyMapGauge, m.gauge)
+	return copyMapGauge, nil
 }
 
 func (m *memStorage) GetCounter(name string) (int64, error) {
