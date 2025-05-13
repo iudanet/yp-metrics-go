@@ -33,7 +33,7 @@ func main() {
 	m.HandleFunc(`POST /value/{$}`, svc.GetMetricJSON)
 	m.HandleFunc(`GET /{$}`, svc.GetIndex)
 	newLogger.Info("Running server", zap.String("address", cfg.MetricServerHost))
-	err = http.ListenAndServe(cfg.MetricServerHost, svc.WithLogging(m))
+	err = http.ListenAndServe(cfg.MetricServerHost, svc.GzipMiddleware(svc.WithLogging(m)))
 	if err != nil {
 		panic(err)
 	}

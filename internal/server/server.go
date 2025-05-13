@@ -203,9 +203,10 @@ func (s *service) GetIndex(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tmpl := template.Must(template.New("index").Parse(indexTemplate))
-
+	w.Header().Set("Content-Type", "text/html")
 	// Рендерим шаблон
 	if err := tmpl.Execute(w, data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+	w.WriteHeader(http.StatusOK)
 }
