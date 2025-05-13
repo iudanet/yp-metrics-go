@@ -59,11 +59,17 @@ func (s *service) UpdateMetricJSON(w http.ResponseWriter, req *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		if s.config.Storage.StoreInterval == 0 {
+			s.storage.SaveDB(s.config.Storage.Path)
+		}
 	case typeGauge:
 		err = s.storage.SetGauge(metrics.ID, *metrics.Value)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
+		}
+		if s.config.Storage.StoreInterval == 0 {
+			s.storage.SaveDB(s.config.Storage.Path)
 		}
 	default:
 		http.Error(w, "invalid metric type", http.StatusBadRequest)
@@ -91,6 +97,9 @@ func (s *service) UpdateMetric(w http.ResponseWriter, req *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		if s.config.Storage.StoreInterval == 0 {
+			s.storage.SaveDB(s.config.Storage.Path)
+		}
 	case typeCounter:
 		value, err := strconv.ParseInt(rawValue, 10, 64)
 		if err != nil {
@@ -101,6 +110,9 @@ func (s *service) UpdateMetric(w http.ResponseWriter, req *http.Request) {
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
+		}
+		if s.config.Storage.StoreInterval == 0 {
+			s.storage.SaveDB(s.config.Storage.Path)
 		}
 	default:
 		http.Error(w, "invalid metric type", http.StatusBadRequest)

@@ -16,7 +16,7 @@ func TestNewServerConfig(t *testing.T) {
 func TestParseServerFlags_Environment(t *testing.T) {
 	// Сохраняем оригинальное значение переменной окружения
 	oldAddress := os.Getenv("ADDRESS")
-
+	storageCfg := Storage{Restore: false, Path: "./db.json", StoreInterval: 300}
 	// Восстанавливаем оригинальное значение после теста
 	defer func() {
 		os.Setenv("ADDRESS", oldAddress)
@@ -34,6 +34,7 @@ func TestParseServerFlags_Environment(t *testing.T) {
 			},
 			expected: ServerConfig{
 				MetricServerHost: "localhost:9090",
+				Storage:          storageCfg,
 			},
 		},
 		{
@@ -41,6 +42,7 @@ func TestParseServerFlags_Environment(t *testing.T) {
 			envVars: map[string]string{},
 			expected: ServerConfig{
 				MetricServerHost: "localhost:8080",
+				Storage:          storageCfg,
 			},
 		},
 	}
