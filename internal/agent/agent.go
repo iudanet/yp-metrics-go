@@ -1,6 +1,9 @@
 package agent
 
 import (
+	"bytes"
+	"compress/gzip"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -8,6 +11,7 @@ import (
 	"time"
 
 	"github.com/iudanet/yp-metrics-go/internal/config"
+	"github.com/iudanet/yp-metrics-go/internal/models"
 	"github.com/iudanet/yp-metrics-go/internal/storage"
 	"github.com/iudanet/yp-metrics-go/internal/utils"
 )
@@ -91,13 +95,12 @@ func (a *Agent) ReportWorker() {
 			log.Println("Ошибка получения счетчика:", err)
 			continue
 		}
-		for nameCouner, valueCounter := range counter {
-			err = a.PushCounter(nameCouner, valueCounter)
+		for nameCounter, valueCounter := range counter {
+			err = a.PushCounter(nameCounter, valueCounter)
 			if err != nil {
 				log.Println(err)
 				continue
 			}
-
 		}
 		gaugeMap, err := a.reader.GetMapGauge()
 		if err != nil {
@@ -110,42 +113,83 @@ func (a *Agent) ReportWorker() {
 				log.Println(err)
 				continue
 			}
-
 		}
 		time.Sleep(time.Duration(a.config.ReportInterval) * time.Second)
 	}
-
 }
 func (a *Agent) PushCounter(name string, value int64) error {
-	//	POST /update/counter/someMetric/527 HTTP/1.1
-	//
-	// Host: localhost:8080
-	// Content-Length: 0
-	// Content-Type: text/plain
-	req, err := http.Post(fmt.Sprintf("http://%s/update/%s/%s/%d", a.config.MetricServerHost, "counter", name, value), "text/plain", nil)
-	if err != nil {
-		return fmt.Errorf("unable to send request to server: %w", err)
+	metric := models.Metrics{
+		ID:    name,
+		MType: "counter",
+		Delta: &value,
 	}
-	defer req.Body.Close()
-	if req.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to push counter metric: %s", req.Status)
-	}
-	return nil
+	
+	return a.sendCompressedMetric(&metric)
 }
 
 func (a *Agent) PushGauge(name string, value float64) error {
-	//	POST /update/gauge/someMetric/527 HTTP/1.1
-	//
-	// Host: localhost:8080
-	// Content-Length: 0
-	// Content-Type: text/plain
-	req, err := http.Post(fmt.Sprintf("http://%s/update/%s/%s/%f", a.config.MetricServerHost, "gauge", name, value), "text/plain", nil)
+	metric := models.Metrics{
+		ID:    name,
+		MType: "gauge",
+		Value: &value,
+	}
+	
+	return a.sendCompressedMetric(&metric)
+}
+
+// compressData compresses data using gzip
+func compressData(data []byte) ([]byte, error) {
+	var buf bytes.Buffer
+	gzipWriter := gzip.NewWriter(&buf)
+	
+	_, err := gzipWriter.Write(data)
 	if err != nil {
-		return fmt.Errorf("unable to send request to server: %w", err)
+		return nil, fmt.Errorf("failed to write to gzip writer: %w", err)
 	}
-	defer req.Body.Close()
-	if req.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to push counter metric: %s", req.Status)
+	
+	if err := gzipWriter.Close(); err != nil {
+		return nil, fmt.Errorf("failed to close gzip writer: %w", err)
 	}
+	
+	return buf.Bytes(), nil
+}
+
+// sendCompressedMetric sends a metric in JSON format with gzip compression
+func (a *Agent) sendCompressedMetric(metric *models.Metrics) error {
+	// Convert metric to JSON
+	jsonData, err := json.Marshal(metric)
+	if err != nil {
+		return fmt.Errorf("failed to marshal metric to JSON: %w", err)
+	}
+	
+	// Compress JSON data
+	compressedData, err := compressData(jsonData)
+	if err != nil {
+		return fmt.Errorf("failed to compress data: %w", err)
+	}
+	
+	// Create request
+	url := fmt.Sprintf("http://%s/update/", a.config.MetricServerHost)
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(compressedData))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+	
+	// Set headers
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Encoding", "gzip")
+	
+	// Send request
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to push metric: %s", resp.Status)
+	}
+	
 	return nil
 }
