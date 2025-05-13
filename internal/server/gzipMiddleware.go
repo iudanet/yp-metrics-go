@@ -132,7 +132,7 @@ func (s *service) GzipMiddleware(h http.Handler) http.Handler {
 		acceptEncoding := r.Header.Get("Accept-Encoding")
 		supportsGzip := strings.Contains(acceptEncoding, "gzip")
 
-		var responseWriter http.ResponseWriter = w
+		var responseWriter = w
 
 		if supportsGzip {
 			// Only create compressWriter if client supports gzip

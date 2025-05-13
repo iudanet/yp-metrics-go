@@ -111,7 +111,9 @@ func TestGzipCompression(t *testing.T) {
 			// Verify the content was handled correctly
 			if wasCompressed {
 				// Decompress response body and verify content
-				decompressed := decompressBody(t, recorder.Result().Body)
+				result := recorder.Result()
+				defer result.Body.Close()
+				decompressed := decompressBody(t, result.Body)
 				assert.Equal(t, `{"status":"ok","message":"test response"}`, decompressed)
 			} else {
 				// Verify uncompressed content directly
@@ -314,7 +316,7 @@ func TestGzipErrorHandling(t *testing.T) {
 			resp, err := client.Do(req)
 			require.NoError(t, err)
 			defer resp.Body.Close()
-
+			
 			// Verify the status code
 			assert.Equal(t, tt.statusCode, resp.StatusCode)
 
