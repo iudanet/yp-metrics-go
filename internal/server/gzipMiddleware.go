@@ -9,28 +9,28 @@ import (
 
 // CompressibleContentTypes maps MIME types that should be compressed
 var compressibleContentTypes = map[string]bool{
-	"application/javascript": true,
-	"application/json":       true,
-	"text/css":               true,
-	"text/html":              true,
-	"text/plain":             true,
-	"text/xml":               true,
+	// "application/javascript": true,
+	"application/json": true,
+	// "text/css":               true,
+	"text/html": true,
+	// "text/plain":             true,
+	// "text/xml": true,
 }
 
 // compressWriter implements http.ResponseWriter with transparent gzip compression
 // and proper HTTP header handling
 type compressWriter struct {
-	w            http.ResponseWriter
-	zw           *gzip.Writer
-	headerWritten bool
+	w              http.ResponseWriter
+	zw             *gzip.Writer
+	headerWritten  bool
 	shouldCompress bool
 }
 
 func newCompressWriter(w http.ResponseWriter) *compressWriter {
 	return &compressWriter{
-		w:            w,
-		zw:           gzip.NewWriter(w),
-		headerWritten: false,
+		w:              w,
+		zw:             gzip.NewWriter(w),
+		headerWritten:  false,
 		shouldCompress: false,
 	}
 }
@@ -44,17 +44,17 @@ func (c *compressWriter) Write(p []byte) (int, error) {
 		// Check content type before writing
 		contentType := c.w.Header().Get("Content-Type")
 		c.shouldCompress = isCompressibleType(contentType)
-		
+
 		if c.shouldCompress {
 			c.w.Header().Set("Content-Encoding", "gzip")
 		}
 		c.headerWritten = true
 	}
-	
+
 	if c.shouldCompress {
 		return c.zw.Write(p)
 	}
-	
+
 	return c.w.Write(p)
 }
 
@@ -63,13 +63,13 @@ func (c *compressWriter) WriteHeader(statusCode int) {
 		// Check content type before writing header
 		contentType := c.w.Header().Get("Content-Type")
 		c.shouldCompress = isCompressibleType(contentType) && statusCode < 300
-		
+
 		if c.shouldCompress {
 			c.w.Header().Set("Content-Encoding", "gzip")
 		}
 		c.headerWritten = true
 	}
-	
+
 	c.w.WriteHeader(statusCode)
 }
 
@@ -88,7 +88,7 @@ func isCompressibleType(contentType string) bool {
 		contentType = contentType[:idx]
 	}
 	contentType = strings.TrimSpace(contentType)
-	
+
 	return compressibleContentTypes[contentType]
 }
 
@@ -117,7 +117,7 @@ func (c *compressReader) Close() error {
 	// Close both readers and return any error that occurs
 	rErr := c.r.Close()
 	zrErr := c.zr.Close()
-	
+
 	// Return the first error encountered
 	if rErr != nil {
 		return rErr
@@ -131,31 +131,31 @@ func (s *service) GzipMiddleware(h http.Handler) http.Handler {
 		// Check if client accepts gzip encoding
 		acceptEncoding := r.Header.Get("Accept-Encoding")
 		supportsGzip := strings.Contains(acceptEncoding, "gzip")
-		
+
 		var responseWriter http.ResponseWriter = w
-		
+
 		if supportsGzip {
 			// Only create compressWriter if client supports gzip
 			cw := newCompressWriter(w)
 			responseWriter = cw
 			defer cw.Close()
 		}
-		
+
 		// Check if request body is gzip encoded
 		contentEncoding := r.Header.Get("Content-Encoding")
 		sendsGzip := strings.Contains(contentEncoding, "gzip")
-		
+
 		if sendsGzip {
 			cr, err := newCompressReader(r.Body)
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
-			
+
 			r.Body = cr
 			defer cr.Close()
 		}
-		
+
 		// Pass control to the wrapped handler
 		h.ServeHTTP(responseWriter, r)
 	})
