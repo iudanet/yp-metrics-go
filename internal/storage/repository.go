@@ -4,8 +4,6 @@ import (
 	"errors"
 	"maps"
 	"sync"
-
-	"github.com/iudanet/yp-metrics-go/internal/utils"
 )
 
 var (
@@ -67,7 +65,9 @@ func (m *memStorage) SetCounter(name string, value int64) error {
 func (m *memStorage) SetGauge(name string, value float64) error {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
-	m.gauge[name] = utils.Round(value, 3)
+	// m.gauge[name] = utils.Round(value, 6)
+	m.gauge[name] = value
+
 	return nil
 }
 
