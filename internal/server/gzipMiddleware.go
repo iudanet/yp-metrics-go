@@ -9,12 +9,8 @@ import (
 
 // CompressibleContentTypes maps MIME types that should be compressed
 var compressibleContentTypes = map[string]bool{
-	// "application/javascript": true,
 	"application/json": true,
-	// "text/css":               true,
-	"text/html": true,
-	// "text/plain":             true,
-	// "text/xml": true,
+	"text/html":        true,
 }
 
 // compressWriter implements http.ResponseWriter with transparent gzip compression

@@ -21,9 +21,6 @@ var sugar zap.SugaredLogger
 
 func main() {
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
@@ -45,6 +42,9 @@ func main() {
 			newLogger.Info("Successfully restored metrics from disk")
 		}
 	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	// Start the worker if store interval is greater than 0
 	if cfg.Storage.StoreInterval > 0 {
 		storage.StartWorker(ctx, cfg.Storage, newLogger)

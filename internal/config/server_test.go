@@ -16,7 +16,7 @@ func TestNewServerConfig(t *testing.T) {
 func TestParseServerFlags_Environment(t *testing.T) {
 	// Сохраняем оригинальное значение переменной окружения
 	oldAddress := os.Getenv("ADDRESS")
-	storageCfg := Storage{Restore: false, Path: "./db.json", StoreInterval: 300}
+	storageCfg := Storage{Restore: false, Path: "/tmp/metrics-db.json", StoreInterval: 300}
 	// Восстанавливаем оригинальное значение после теста
 	defer func() {
 		os.Setenv("ADDRESS", oldAddress)

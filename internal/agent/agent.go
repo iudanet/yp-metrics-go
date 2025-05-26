@@ -23,6 +23,7 @@ type Agent struct {
 	writer  storage.MetricWriter
 	counter storage.CounterIncrementer
 	reader  storage.MetricReader
+	client  *http.Client
 }
 
 func NewAgent(cfg *config.AgentConfig, storage storage.Repository) *Agent {
@@ -32,6 +33,7 @@ func NewAgent(cfg *config.AgentConfig, storage storage.Repository) *Agent {
 		writer:   storage,
 		counter:  storage,
 		reader:   storage,
+		client:   &http.Client{},
 	}
 	return agent
 }
@@ -137,23 +139,6 @@ func (a *Agent) PushGauge(name string, value float64) error {
 	return a.sendCompressedMetric(&metric)
 }
 
-// compressData compresses data using gzip
-func compressData(data []byte) ([]byte, error) {
-	var buf bytes.Buffer
-	gzipWriter := gzip.NewWriter(&buf)
-
-	_, err := gzipWriter.Write(data)
-	if err != nil {
-		return nil, fmt.Errorf("failed to write to gzip writer: %w", err)
-	}
-
-	if err := gzipWriter.Close(); err != nil {
-		return nil, fmt.Errorf("failed to close gzip writer: %w", err)
-	}
-
-	return buf.Bytes(), nil
-}
-
 // sendCompressedMetric sends a metric in JSON format with gzip compression
 func (a *Agent) sendCompressedMetric(metric *models.Metrics) error {
 	// Convert metric to JSON
@@ -180,8 +165,7 @@ func (a *Agent) sendCompressedMetric(metric *models.Metrics) error {
 	req.Header.Set("Content-Encoding", "gzip")
 
 	// Send request
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := a.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to send request: %w", err)
 	}
@@ -192,4 +176,21 @@ func (a *Agent) sendCompressedMetric(metric *models.Metrics) error {
 	}
 
 	return nil
+}
+
+// compressData compresses data using gzip
+func compressData(data []byte) ([]byte, error) {
+	var buf bytes.Buffer
+	gzipWriter := gzip.NewWriter(&buf)
+
+	_, err := gzipWriter.Write(data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write to gzip writer: %w", err)
+	}
+
+	if err := gzipWriter.Close(); err != nil {
+		return nil, fmt.Errorf("failed to close gzip writer: %w", err)
+	}
+
+	return buf.Bytes(), nil
 }

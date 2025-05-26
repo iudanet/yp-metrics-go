@@ -23,7 +23,7 @@ func NewServerConfig() *ServerConfig {
 		MetricServerHost: "localhost:8080",
 		Storage: Storage{
 			Restore:       false,
-			Path:          "./db.json",
+			Path:          "/tmp/metrics-db.json",
 			StoreInterval: 300,
 		},
 	}
@@ -38,18 +38,18 @@ func ParseServerFlags() *ServerConfig {
 	flag.BoolVar(&cfg.Storage.Restore, "r", cfg.Storage.Restore, "Restore from disk. Env: RESTORE")
 	flag.Parse()
 
-	envADDRESS := os.Getenv("ADDRESS")
-	if envADDRESS != "" {
-		cfg.MetricServerHost = envADDRESS
+	envAddress := os.Getenv("ADDRESS")
+	if envAddress != "" {
+		cfg.MetricServerHost = envAddress
 	}
-	envFILESTORAGEPATH := os.Getenv("FILE_STORAGE_PATH")
-	if envFILESTORAGEPATH != "" {
-		cfg.Storage.Path = envFILESTORAGEPATH
+	envFileStoragePath := os.Getenv("FILE_STORAGE_PATH")
+	if envFileStoragePath != "" {
+		cfg.Storage.Path = envFileStoragePath
 	}
 
-	envSTOREINTERVAL := os.Getenv("STORE_INTERVAL")
-	if envSTOREINTERVAL != "" {
-		interval, err := strconv.Atoi(envSTOREINTERVAL)
+	envStoreInterval := os.Getenv("STORE_INTERVAL")
+	if envStoreInterval != "" {
+		interval, err := strconv.Atoi(envStoreInterval)
 		if err != nil {
 			log.Println("Error parsing ENV: STORE_INTERVAL", err)
 		} else {
@@ -57,9 +57,9 @@ func ParseServerFlags() *ServerConfig {
 		}
 	}
 
-	envRESTORE := os.Getenv("RESTORE")
-	if envRESTORE != "" {
-		restore, err := strconv.ParseBool(envRESTORE)
+	envRestore := os.Getenv("RESTORE")
+	if envRestore != "" {
+		restore, err := strconv.ParseBool(envRestore)
 		if err != nil {
 			log.Println("Error parsing ENV: RESTORE", err)
 		} else {

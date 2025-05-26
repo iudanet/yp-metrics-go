@@ -41,7 +41,7 @@ type IndexData struct {
 
 func (s *service) UpdateMetricJSON(w http.ResponseWriter, req *http.Request) {
 	if req.Header.Get("Content-Type") != "application/json" {
-		http.Error(w, "invalid content type", http.StatusBadRequest)
+		http.Error(w, "invalid content type", http.StatusUnsupportedMediaType)
 		return
 	}
 	var metrics models.Metrics
