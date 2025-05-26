@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -28,8 +29,7 @@ func main() {
 
 	newLogger, err := logger.New("Info")
 	if err != nil {
-		// вызываем панику, если ошибка
-		panic(err)
+		log.Fatal(err)
 	}
 
 	// делаем регистратор SugaredLogger
