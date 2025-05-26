@@ -42,30 +42,30 @@ func TestCompressData(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Compress the data
 			compressed, err := compressData(tc.inputData)
-			
+
 			if tc.expectError {
 				assert.Error(t, err)
 				return
 			}
-			
+
 			require.NoError(t, err)
 			assert.NotNil(t, compressed)
-			
+
 			// The compressed data should be different from the input
 			if len(tc.inputData) > 0 {
 				assert.NotEqual(t, tc.inputData, compressed)
 			}
-			
+
 			// Decompress the data to verify it matches the original
 			reader, err := gzip.NewReader(bytes.NewReader(compressed))
 			require.NoError(t, err)
-			
+
 			decompressed, err := io.ReadAll(reader)
 			require.NoError(t, err)
-			
+
 			// Verify the decompressed data matches the original input
 			assert.Equal(t, tc.inputData, decompressed)
-			
+
 			err = reader.Close()
 			require.NoError(t, err)
 		})
@@ -74,22 +74,22 @@ func TestCompressData(t *testing.T) {
 
 func TestCompressDecompressRoundTrip(t *testing.T) {
 	originalData := []byte(`{"id":"MetricName","type":"counter","delta":12345}`)
-	
+
 	// Compress
 	compressed, err := compressData(originalData)
 	require.NoError(t, err)
-	
+
 	// The compressed data size may vary and could be larger for small inputs due to gzip headers
 	// We're just verifying the compression/decompression process works correctly
-	
+
 	// Decompress
 	reader, err := gzip.NewReader(bytes.NewReader(compressed))
 	require.NoError(t, err)
 	defer reader.Close()
-	
+
 	decompressed, err := io.ReadAll(reader)
 	require.NoError(t, err)
-	
+
 	// Verify round trip
 	assert.Equal(t, originalData, decompressed)
 }

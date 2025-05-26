@@ -44,7 +44,7 @@ func TestAgent(t *testing.T) {
 		// Проверяем заголовки
 		contentType := r.Header.Get("Content-Type")
 		contentEncoding := r.Header.Get("Content-Encoding")
-		
+
 		// Проверяем, что запрос содержит JSON и сжат
 		if contentType == "application/json" && contentEncoding == "gzip" {
 			// Распаковываем gzip
@@ -59,27 +59,27 @@ func TestAgent(t *testing.T) {
 				defer gzipReader.Close()
 				reader = gzipReader
 			}
-			
+
 			// Декодируем JSON
 			var metric models.Metrics
 			if err := json.NewDecoder(reader).Decode(&metric); err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
-			
+
 			// Проверяем, что метрика содержит необходимые данные
 			if metric.ID == "" || metric.MType == "" {
 				http.Error(w, "invalid metric data", http.StatusBadRequest)
 				return
 			}
-			
+
 			// Сохраняем полученную метрику для проверки в тестах
 			receivedMetric = &metric
 		} else if !strings.HasPrefix(r.URL.Path, "/update/") {
 			http.Error(w, "invalid request", http.StatusBadRequest)
 			return
 		}
-		
+
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
@@ -107,10 +107,10 @@ func TestAgent(t *testing.T) {
 			fn: func(t *testing.T, a *Agent) {
 				// Сбрасываем полученную метрику перед тестом
 				receivedMetric = nil
-				
+
 				err := a.PushCounter("test", 10)
 				assert.NoError(t, err)
-				
+
 				// Проверяем, что метрика была получена сервером
 				assert.NotNil(t, receivedMetric, "Server should receive the metric")
 				assert.Equal(t, "test", receivedMetric.ID)
@@ -124,10 +124,10 @@ func TestAgent(t *testing.T) {
 			fn: func(t *testing.T, a *Agent) {
 				// Сбрасываем полученную метрику перед тестом
 				receivedMetric = nil
-				
+
 				err := a.PushGauge("test", 10.5)
 				assert.NoError(t, err)
-				
+
 				// Проверяем, что метрика была получена сервером
 				assert.NotNil(t, receivedMetric, "Server should receive the metric")
 				assert.Equal(t, "test", receivedMetric.ID)
@@ -141,12 +141,12 @@ func TestAgent(t *testing.T) {
 			fn: func(t *testing.T, a *Agent) {
 				// Сбрасываем полученную метрику перед тестом
 				receivedMetric = nil
-				
+
 				// Отправляем метрику
 				testValue := float64(42.42)
 				err := a.PushGauge("compressed_json_test", testValue)
 				assert.NoError(t, err)
-				
+
 				// Проверяем содержимое отправленной метрики
 				assert.NotNil(t, receivedMetric, "Server should receive the compressed metric")
 				assert.Equal(t, "compressed_json_test", receivedMetric.ID)

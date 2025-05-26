@@ -316,7 +316,7 @@ func TestGzipErrorHandling(t *testing.T) {
 			resp, err := client.Do(req)
 			require.NoError(t, err)
 			defer resp.Body.Close()
-			
+
 			// Verify the status code
 			assert.Equal(t, tt.statusCode, resp.StatusCode)
 

@@ -123,7 +123,7 @@ func (a *Agent) PushCounter(name string, value int64) error {
 		MType: "counter",
 		Delta: &value,
 	}
-	
+
 	return a.sendCompressedMetric(&metric)
 }
 
@@ -133,7 +133,7 @@ func (a *Agent) PushGauge(name string, value float64) error {
 		MType: "gauge",
 		Value: &value,
 	}
-	
+
 	return a.sendCompressedMetric(&metric)
 }
 
@@ -141,16 +141,16 @@ func (a *Agent) PushGauge(name string, value float64) error {
 func compressData(data []byte) ([]byte, error) {
 	var buf bytes.Buffer
 	gzipWriter := gzip.NewWriter(&buf)
-	
+
 	_, err := gzipWriter.Write(data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to write to gzip writer: %w", err)
 	}
-	
+
 	if err := gzipWriter.Close(); err != nil {
 		return nil, fmt.Errorf("failed to close gzip writer: %w", err)
 	}
-	
+
 	return buf.Bytes(), nil
 }
 
@@ -161,24 +161,24 @@ func (a *Agent) sendCompressedMetric(metric *models.Metrics) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal metric to JSON: %w", err)
 	}
-	
+
 	// Compress JSON data
 	compressedData, err := compressData(jsonData)
 	if err != nil {
 		return fmt.Errorf("failed to compress data: %w", err)
 	}
-	
+
 	// Create request
 	url := fmt.Sprintf("http://%s/update/", a.config.MetricServerHost)
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(compressedData))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
-	
+
 	// Set headers
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Content-Encoding", "gzip")
-	
+
 	// Send request
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -186,10 +186,10 @@ func (a *Agent) sendCompressedMetric(metric *models.Metrics) error {
 		return fmt.Errorf("failed to send request: %w", err)
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("failed to push metric: %s", resp.Status)
 	}
-	
+
 	return nil
 }
