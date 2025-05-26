@@ -12,7 +12,7 @@ func TestGetRandomNumber(t *testing.T) {
 		fn   func(t *testing.T)
 	}{
 		{
-			name: "test_andom_numberRange",
+			name: "test_random_number_range",
 			fn: func(t *testing.T) {
 				value := GetRandomNumber()
 				assert.GreaterOrEqual(t, value, 0.0)
@@ -20,13 +20,11 @@ func TestGetRandomNumber(t *testing.T) {
 			},
 		},
 		{
-			name: "test_random_number_consistency",
+			name: "test_random_number_different_values",
 			fn: func(t *testing.T) {
-				// Поскольку мы используем фиксированный seed,
-				// числа должны быть одинаковыми при последовательных вызовах
 				first := GetRandomNumber()
 				second := GetRandomNumber()
-				assert.Equal(t, first, second)
+				assert.NotEqual(t, first, second)
 			},
 		},
 	}

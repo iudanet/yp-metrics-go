@@ -1,5 +1,6 @@
 RANDOM_PORT:=$(shell random unused-port)
 SERVER_PORT=$(RANDOM_PORT)
+TEMP_FILE=$(shell random tempfile)
 
 build-agent::
 	go build -o cmd/agent/agent cmd/agent/main.go
@@ -43,6 +44,44 @@ test_iter5::  build test_iter1 test_iter2 test_iter3 test_iter4
     	-server-port=$(SERVER_PORT) \
     	-source-path=.
 
+test_iter6::  build test_iter1 test_iter2 test_iter3 test_iter4 test_iter5
+	SERVER_PORT=$(SERVER_PORT)\
+	ADDRESS="localhost:$(SERVER_PORT)" \
+    	TEMP_FILE=$(shell random tempfile) \
+    	metricstest -test.v -test.run=^TestIteration6$ \
+    	-agent-binary-path=cmd/agent/agent \
+    	-binary-path=cmd/server/server \
+    	-server-port=$(SERVER_PORT) \
+    	-source-path=.
+
+
+test_iter7::  build test_iter1 test_iter2 test_iter3 test_iter4 test_iter5 test_iter6
+	SERVER_PORT=$(SERVER_PORT)\
+	ADDRESS="localhost:$(SERVER_PORT)" \
+    	TEMP_FILE=$(shell random tempfile) \
+    	metricstest -test.v -test.run=^TestIteration7$ \
+    	-agent-binary-path=cmd/agent/agent \
+    	-binary-path=cmd/server/server \
+    	-server-port=$(SERVER_PORT) \
+    	-source-path=.
+
+test_iter8::  build test_iter1 test_iter2 test_iter3 test_iter4 test_iter5 test_iter6
+	SERVER_PORT=$(SERVER_PORT)\
+	ADDRESS="localhost:$(SERVER_PORT)" \
+    	TEMP_FILE=$(shell random tempfile) \
+    	metricstest -test.v -test.run=^TestIteration8$ \
+    	-agent-binary-path=cmd/agent/agent \
+    	-binary-path=cmd/server/server \
+    	-server-port=$(SERVER_PORT) \
+    	-source-path=.
+test_iter9:: build test_iter1 test_iter2 test_iter3 test_iter4 test_iter5 test_iter6 test_iter7 test_iter8
+	ADDRESS="localhost:$(SERVER_PORT)" \
+    	metricstest -test.v -test.run=^TestIteration9$ \
+        -file-storage-path=$(TEMP_FILE) \
+    	-agent-binary-path=cmd/agent/agent \
+    	-binary-path=cmd/server/server \
+    	-server-port=$(SERVER_PORT) \
+    	-source-path=.
 
 test::
 	go test ./...
