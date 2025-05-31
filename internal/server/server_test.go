@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -67,10 +66,7 @@ func TestUpdateMetric(t *testing.T) {
 			cfg := &config.ServerConfig{
 				MetricServerHost: "localhost:8080",
 			}
-			cfg.Storage.DatabaseDSN = "postgres://metrics:yandex@localhost:5432/metrics_db"
-			ctx := context.Background()
-			pg := storage.NewPostgres(ctx, cfg.Storage.DatabaseDSN)
-			svc := NewService(store, cfg, newLogger, pg)
+			svc := NewService(store, cfg, newLogger, store)
 
 			req := httptest.NewRequest(http.MethodPost, tt.urlPath, nil)
 			req.Header.Set("Content-Type", tt.contentType)
