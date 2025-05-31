@@ -7,7 +7,10 @@ build-agent::
 build-server::
 	go build -o cmd/server/server cmd/server/main.go
 
-build:: test build-agent build-server
+build:: statictest test build-agent build-server
+
+statictest::
+	go vet -vettool=$(shell which statictest) ./...
 
 test_iter1:: build-server
 	metricstest -test.v -test.run=^TestIteration1$$ -binary-path=cmd/server/server

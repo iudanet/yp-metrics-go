@@ -175,7 +175,7 @@ func (m *memStorage) StartWorker(ctx context.Context, cfg config.Storage, logger
 	}()
 }
 
-func (s *memStorage) Ping(ctx context.Context) error {
+func (m *memStorage) Ping(ctx context.Context) error {
 	_ = ctx
 	return nil
 }

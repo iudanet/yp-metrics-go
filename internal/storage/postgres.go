@@ -137,8 +137,8 @@ func (p *postgreStorage) LoadDB(filename string) error {
 	return nil
 }
 
-func (s *postgreStorage) Ping(ctx context.Context) error {
-	err := s.conn.Ping(ctx)
+func (p *postgreStorage) Ping(ctx context.Context) error {
+	err := p.conn.Ping(ctx)
 	if err != nil {
 		return err
 	}
