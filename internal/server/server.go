@@ -19,12 +19,13 @@ const (
 	typeCounter string = "counter"
 )
 
-func NewService(storage storage.Repository, cfg *config.ServerConfig, logger *zap.Logger) *service {
+func NewService(storage storage.Repository, cfg *config.ServerConfig, logger *zap.Logger, pg storage.Repository) *service {
 	return &service{
 		storage: storage,
 		viewer:  storage,
 		config:  cfg,
 		logger:  logger,
+		checker: pg,
 	}
 }
 
@@ -33,6 +34,7 @@ type service struct {
 	viewer  storage.MetricReader
 	config  *config.ServerConfig
 	logger  *zap.Logger
+	checker storage.HealthcheckDB
 }
 type IndexData struct {
 	Counters map[string]int64
@@ -219,6 +221,16 @@ func (s *service) GetIndex(w http.ResponseWriter, r *http.Request) {
 	// Рендерим шаблон
 	if err := tmpl.Execute(w, data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+// функция для логики /ping проверющая подклчюение к базе данных.
+func (s *service) Ping(w http.ResponseWriter, r *http.Request) {
+	err := s.checker.Ping(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusServiceUnavailable)
+		return
 	}
 	w.WriteHeader(http.StatusOK)
 }

@@ -83,5 +83,15 @@ test_iter9:: build test_iter1 test_iter2 test_iter3 test_iter4 test_iter5 test_i
     	-server-port=$(SERVER_PORT) \
     	-source-path=.
 
+test_iter10:: build
+	ADDRESS="localhost:$(SERVER_PORT)" \
+    	metricstest -test.v -test.run=^TestIteration10[AB]$ \
+        -file-storage-path=$(TEMP_FILE) \
+    	-agent-binary-path=cmd/agent/agent \
+    	-binary-path=cmd/server/server \
+    	-server-port=$(SERVER_PORT) \
+        -database-dsn='postgres://metrics:yandex@localhost:5432/metrics_db?sslmode=disable' \
+    	-source-path=.
+
 test::
 	go test ./...

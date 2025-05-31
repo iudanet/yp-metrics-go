@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -66,7 +67,10 @@ func TestUpdateMetric(t *testing.T) {
 			cfg := &config.ServerConfig{
 				MetricServerHost: "localhost:8080",
 			}
-			svc := NewService(store, cfg, newLogger)
+			cfg.Storage.DatabaseDSN = "postgres://metrics:yandex@localhost:5432/metrics_db"
+			ctx := context.Background()
+			pg := storage.NewPostgres(ctx, cfg.Storage.DatabaseDSN)
+			svc := NewService(store, cfg, newLogger, pg)
 
 			req := httptest.NewRequest(http.MethodPost, tt.urlPath, nil)
 			req.Header.Set("Content-Type", tt.contentType)
@@ -92,10 +96,13 @@ func TestUpdateMetric(t *testing.T) {
 func TestUpdateMetricSuccess(t *testing.T) {
 	store := storage.NewStorage()
 	cfg := config.NewServerConfig()
+	cfg.Storage.DatabaseDSN = "postgres://metrics:yandex@localhost:5432/metrics_db"
+
 	newLogger, err := logger.New("Info")
 	assert.NoError(t, err)
-
-	svc := NewService(store, cfg, newLogger)
+	ctx := context.Background()
+	pg := storage.NewPostgres(ctx, cfg.Storage.DatabaseDSN)
+	svc := NewService(store, cfg, newLogger, pg)
 
 	tests := []struct {
 		name       string

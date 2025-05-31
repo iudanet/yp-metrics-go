@@ -30,12 +30,12 @@ func main() {
 	}
 
 	// делаем регистратор SugaredLogger
-	storage := storage.NewStorage()
+	st := storage.NewStorage()
 	cfg := config.ParseServerFlags()
 
 	// восстановление базы из файла
 	if cfg.Storage.Restore {
-		err := storage.LoadDB(cfg.Storage.Path)
+		err := st.LoadDB(cfg.Storage.Path)
 		if err != nil {
 			newLogger.Error("Failed to restore metrics", zap.Error(err))
 		} else {
@@ -47,12 +47,16 @@ func main() {
 
 	// Start the worker if store interval is greater than 0
 	if cfg.Storage.StoreInterval > 0 {
-		storage.StartWorker(ctx, cfg.Storage, newLogger)
+		st.StartWorker(ctx, cfg.Storage, newLogger)
 		newLogger.Info("Started metrics persistence worker",
 			zap.Int("interval_seconds", cfg.Storage.StoreInterval))
 	}
+	svc := server.NewService(st, cfg, newLogger, st)
+	if cfg.Storage.DatabaseDSN != "" {
+		pg := storage.NewPostgres(ctx, cfg.Storage.DatabaseDSN)
+		svc = server.NewService(st, cfg, newLogger, pg)
+	}
 
-	svc := server.NewService(storage, cfg, newLogger)
 	// chi отключен для проходждения тестов. хотел сделать с нативным новым роутером.
 	_ = chi.NewRouter()
 	m := http.NewServeMux()
@@ -60,6 +64,7 @@ func main() {
 	m.HandleFunc(`POST /update/{$}`, svc.UpdateMetricJSON)
 	m.HandleFunc(`GET /value/{typeMetrics}/{name}`, svc.GetMetric)
 	m.HandleFunc(`POST /value/{$}`, svc.GetMetricJSON)
+	m.HandleFunc(`GET /ping`, svc.Ping)
 	m.HandleFunc(`GET /{$}`, svc.GetIndex)
 
 	srv := &http.Server{
@@ -80,7 +85,7 @@ func main() {
 	newLogger.Info("Received signal", zap.String("signal", sig.String()))
 	cancel()
 	// ждем пока сохранится база при отключении
-	storage.WaitWorker()
+	st.WaitWorker()
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer shutdownCancel()
