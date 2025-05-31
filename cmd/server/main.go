@@ -54,7 +54,7 @@ func main() {
 	svc := server.NewService(st, cfg, newLogger, st)
 	if cfg.Storage.DatabaseDSN != "" {
 		pg := storage.NewPostgres(ctx, cfg.Storage.DatabaseDSN)
-		svc = server.NewService(st, cfg, newLogger, pg)
+		svc = server.NewService(pg, cfg, newLogger, pg)
 	}
 
 	// chi отключен для проходждения тестов. хотел сделать с нативным новым роутером.

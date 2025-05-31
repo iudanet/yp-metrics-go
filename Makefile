@@ -20,14 +20,14 @@ test_iter2::build test_iter1
 	metricstest -test.v -test.run=^TestIteration2[AB]*$$ -source-path=. -agent-binary-path=cmd/agent/agent
 
 
-test_iter3::build test_iter1 test_iter2
+test_iter3::build test_iter2
 	metricstest -test.v -test.run=^TestIteration3[AB]*$$ \
 	-source-path=. \
 	-agent-binary-path=cmd/agent/agent \
 	-binary-path=cmd/server/server
 
 
-test_iter4:: build test_iter1 test_iter2 test_iter3
+test_iter4:: build test_iter3
 	SERVER_PORT=$(SERVER_PORT) \
 	ADDRESS="localhost:$(SERVER_PORT)" \
 	TEMP_FILE=$(shell random tempfile) \
@@ -37,7 +37,7 @@ test_iter4:: build test_iter1 test_iter2 test_iter3
 	  -server-port=$(SERVER_PORT) \
 	  -source-path=.
 
-test_iter5::  build test_iter1 test_iter2 test_iter3 test_iter4
+test_iter5::  build test_iter4
 	SERVER_PORT=$(SERVER_PORT)\
 	ADDRESS="localhost:$(SERVER_PORT)" \
     	TEMP_FILE=$(shell random tempfile) \
@@ -47,7 +47,7 @@ test_iter5::  build test_iter1 test_iter2 test_iter3 test_iter4
     	-server-port=$(SERVER_PORT) \
     	-source-path=.
 
-test_iter6::  build test_iter1 test_iter2 test_iter3 test_iter4 test_iter5
+test_iter6::  build  test_iter5
 	SERVER_PORT=$(SERVER_PORT)\
 	ADDRESS="localhost:$(SERVER_PORT)" \
     	TEMP_FILE=$(shell random tempfile) \
@@ -58,7 +58,7 @@ test_iter6::  build test_iter1 test_iter2 test_iter3 test_iter4 test_iter5
     	-source-path=.
 
 
-test_iter7::  build test_iter1 test_iter2 test_iter3 test_iter4 test_iter5 test_iter6
+test_iter7::  build test_iter6
 	SERVER_PORT=$(SERVER_PORT)\
 	ADDRESS="localhost:$(SERVER_PORT)" \
     	TEMP_FILE=$(shell random tempfile) \
@@ -68,7 +68,7 @@ test_iter7::  build test_iter1 test_iter2 test_iter3 test_iter4 test_iter5 test_
     	-server-port=$(SERVER_PORT) \
     	-source-path=.
 
-test_iter8::  build test_iter1 test_iter2 test_iter3 test_iter4 test_iter5 test_iter6
+test_iter8::  build test_iter7
 	SERVER_PORT=$(SERVER_PORT)\
 	ADDRESS="localhost:$(SERVER_PORT)" \
     	TEMP_FILE=$(shell random tempfile) \
@@ -77,7 +77,7 @@ test_iter8::  build test_iter1 test_iter2 test_iter3 test_iter4 test_iter5 test_
     	-binary-path=cmd/server/server \
     	-server-port=$(SERVER_PORT) \
     	-source-path=.
-test_iter9:: build test_iter1 test_iter2 test_iter3 test_iter4 test_iter5 test_iter6 test_iter7 test_iter8
+test_iter9:: build test_iter8
 	ADDRESS="localhost:$(SERVER_PORT)" \
     	metricstest -test.v -test.run=^TestIteration9$ \
         -file-storage-path=$(TEMP_FILE) \
@@ -86,9 +86,20 @@ test_iter9:: build test_iter1 test_iter2 test_iter3 test_iter4 test_iter5 test_i
     	-server-port=$(SERVER_PORT) \
     	-source-path=.
 
-test_iter10:: build test_iter1 test_iter2 test_iter3 test_iter4 test_iter5 test_iter6 test_iter7 test_iter8 test_iter9
+test_iter10:: build test_iter9
 	ADDRESS="localhost:$(SERVER_PORT)" \
     	metricstest -test.v -test.run=^TestIteration10[AB]$ \
+        -file-storage-path=$(TEMP_FILE) \
+    	-agent-binary-path=cmd/agent/agent \
+    	-binary-path=cmd/server/server \
+    	-server-port=$(SERVER_PORT) \
+        -database-dsn='postgres://metrics:yandex@localhost:5432/metrics_db?sslmode=disable' \
+    	-source-path=.
+
+
+test_iter11:: build test_iter10
+	ADDRESS="localhost:$(SERVER_PORT)" \
+    	metricstest -test.v -test.run=^TestIteration11$ \
         -file-storage-path=$(TEMP_FILE) \
     	-agent-binary-path=cmd/agent/agent \
     	-binary-path=cmd/server/server \
