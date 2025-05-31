@@ -96,13 +96,9 @@ func TestUpdateMetric(t *testing.T) {
 func TestUpdateMetricSuccess(t *testing.T) {
 	store := storage.NewStorage()
 	cfg := config.NewServerConfig()
-	cfg.Storage.DatabaseDSN = "postgres://metrics:yandex@localhost:5432/metrics_db"
-
 	newLogger, err := logger.New("Info")
 	assert.NoError(t, err)
-	ctx := context.Background()
-	pg := storage.NewPostgres(ctx, cfg.Storage.DatabaseDSN)
-	svc := NewService(store, cfg, newLogger, pg)
+	svc := NewService(store, cfg, newLogger, store)
 
 	tests := []struct {
 		name       string

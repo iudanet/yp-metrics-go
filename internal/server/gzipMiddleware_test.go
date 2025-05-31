@@ -3,7 +3,6 @@ package server
 import (
 	"bytes"
 	"compress/gzip"
-	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -50,11 +49,8 @@ func setupTestService(t *testing.T) *service {
 
 	store := storage.NewStorage()
 	cfg := config.NewServerConfig()
-	cfg.Storage.DatabaseDSN = "postgres://metrics:yandex@localhost:5432/metrics_db"
-	ctx := context.Background()
-	pg := storage.NewPostgres(ctx, cfg.Storage.DatabaseDSN)
 
-	return NewService(store, cfg, newLogger, pg)
+	return NewService(store, cfg, newLogger, store)
 }
 
 func TestGzipCompression(t *testing.T) {
