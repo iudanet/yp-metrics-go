@@ -26,8 +26,8 @@ func main() {
 	stor := localStore.New()
 
 	a := agent.NewAgent(cfg, stor)
-	go a.PollWorker()
-	go a.ReportWorker()
+	go a.PollWorker(ctxStop)
+	go a.ReportWorker(ctxStop)
 
 	select {
 	case <-ctxStop.Done():

@@ -56,22 +56,22 @@ func (s *service) UpdateMetricJSON(w http.ResponseWriter, req *http.Request) {
 
 	switch metrics.MType {
 	case typeCounter:
-		err := s.storage.SetCounter(metrics.ID, *metrics.Delta)
+		err := s.storage.SetCounter(req.Context(), metrics.ID, *metrics.Delta)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		if s.config.Storage.StoreInterval == 0 {
-			s.storage.SaveDB(s.config.Storage.Path)
+			s.storage.SaveDB(req.Context(), s.config.Storage.Path)
 		}
 	case typeGauge:
-		err = s.storage.SetGauge(metrics.ID, *metrics.Value)
+		err := s.storage.SetGauge(req.Context(), metrics.ID, *metrics.Value)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		if s.config.Storage.StoreInterval == 0 {
-			s.storage.SaveDB(s.config.Storage.Path)
+			s.storage.SaveDB(req.Context(), s.config.Storage.Path)
 		}
 	default:
 		http.Error(w, "invalid metric type", http.StatusBadRequest)
@@ -94,13 +94,13 @@ func (s *service) UpdateMetric(w http.ResponseWriter, req *http.Request) {
 			http.Error(w, "invalid gauge value", http.StatusBadRequest)
 			return
 		}
-		err = s.storage.SetGauge(name, value)
+		err = s.storage.SetGauge(req.Context(), name, value)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		if s.config.Storage.StoreInterval == 0 {
-			s.storage.SaveDB(s.config.Storage.Path)
+			s.storage.SaveDB(req.Context(), s.config.Storage.Path)
 		}
 	case typeCounter:
 		value, err := strconv.ParseInt(rawValue, 10, 64)
@@ -108,13 +108,13 @@ func (s *service) UpdateMetric(w http.ResponseWriter, req *http.Request) {
 			http.Error(w, "invalid counter value", http.StatusBadRequest)
 			return
 		}
-		err = s.storage.SetCounter(name, value)
+		err = s.storage.SetCounter(req.Context(), name, value)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		if s.config.Storage.StoreInterval == 0 {
-			s.storage.SaveDB(s.config.Storage.Path)
+			s.storage.SaveDB(req.Context(), s.config.Storage.Path)
 		}
 	default:
 		http.Error(w, "invalid metric type", http.StatusBadRequest)
@@ -139,7 +139,7 @@ func (s *service) GetMetricJSON(w http.ResponseWriter, req *http.Request) {
 	var resp models.Metrics
 	switch metrics.MType {
 	case typeGauge:
-		value, err := s.viewer.GetGauge(metrics.ID)
+		value, err := s.viewer.GetGauge(req.Context(), metrics.ID)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
@@ -148,7 +148,7 @@ func (s *service) GetMetricJSON(w http.ResponseWriter, req *http.Request) {
 		resp.MType = metrics.MType
 		resp.Value = &value
 	case typeCounter:
-		delta, err := s.viewer.GetCounter(metrics.ID)
+		delta, err := s.viewer.GetCounter(req.Context(), metrics.ID)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
@@ -177,14 +177,14 @@ func (s *service) GetMetric(w http.ResponseWriter, req *http.Request) {
 
 	switch typeMetrics {
 	case typeGauge:
-		value, err := s.viewer.GetGauge(name)
+		value, err := s.viewer.GetGauge(req.Context(), name)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
 		}
 		fmt.Fprint(w, strconv.FormatFloat(value, 'f', -1, 64))
 	case typeCounter:
-		value, err := s.viewer.GetCounter(name)
+		value, err := s.viewer.GetCounter(req.Context(), name)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
@@ -196,17 +196,17 @@ func (s *service) GetMetric(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (s *service) GetIndex(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" {
+func (s *service) GetIndex(w http.ResponseWriter, req *http.Request) {
+	if req.URL.Path != "/" {
 		http.Error(w, "invalid metric type", http.StatusBadRequest)
 		return
 	}
-	counters, err := s.viewer.GetMapCounter()
+	counters, err := s.viewer.GetMapCounter(req.Context())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	gauges, err := s.viewer.GetMapGauge()
+	gauges, err := s.viewer.GetMapGauge(req.Context())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return

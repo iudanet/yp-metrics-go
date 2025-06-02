@@ -33,18 +33,17 @@ func main() {
 	// делаем регистратор SugaredLogger
 	st := localStore.New()
 	cfg := config.ParseServerFlags()
-
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	// восстановление базы из файла
 	if cfg.Storage.Restore {
-		err := st.LoadDB(cfg.Storage.Path)
+		err := st.LoadDB(ctx, cfg.Storage.Path)
 		if err != nil {
 			newLogger.Error("Failed to restore metrics", zap.Error(err))
 		} else {
 			newLogger.Info("Successfully restored metrics from disk")
 		}
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	// Start the worker if store interval is greater than 0
 	if cfg.Storage.StoreInterval > 0 {

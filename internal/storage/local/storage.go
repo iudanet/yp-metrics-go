@@ -10,9 +10,11 @@ import (
 	"time"
 
 	"github.com/iudanet/yp-metrics-go/internal/config"
+	"github.com/iudanet/yp-metrics-go/internal/storage"
 	"go.uber.org/zap"
 )
 
+var _ storage.Repository = (*memStorage)(nil)
 var (
 	ErrNotFound = errors.New("not found")
 )
@@ -30,21 +32,21 @@ func newMetricsDB() *metricsDB {
 	}
 }
 
-type memStoreorage struct {
+type memStorage struct {
 	gauge   map[string]float64
 	counter map[string]int64
 	mutex   sync.RWMutex
 	wg      sync.WaitGroup
 }
 
-func New() *memStoreorage {
-	return &memStoreorage{
+func New() *memStorage {
+	return &memStorage{
 		gauge:   make(map[string]float64),
 		counter: make(map[string]int64),
 	}
 }
 
-func (m *memStoreorage) SetCounter(name string, value int64) error {
+func (m *memStorage) SetCounter(ctx context.Context, name string, value int64) error {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	v, ok := m.counter[name]
@@ -57,7 +59,7 @@ func (m *memStoreorage) SetCounter(name string, value int64) error {
 	return nil
 }
 
-func (m *memStoreorage) SetGauge(name string, value float64) error {
+func (m *memStorage) SetGauge(ctx context.Context, name string, value float64) error {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.gauge[name] = value
@@ -65,20 +67,20 @@ func (m *memStoreorage) SetGauge(name string, value float64) error {
 	return nil
 }
 
-func (m *memStoreorage) IncrCounter(name string) error {
+func (m *memStorage) IncrCounter(ctx context.Context, name string) error {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.counter[name]++
 	return nil
 }
 
-func (m *memStoreorage) GetMapCounter() (map[string]int64, error) {
+func (m *memStorage) GetMapCounter(ctx context.Context) (map[string]int64, error) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 	return m.counter, nil
 }
 
-func (m *memStoreorage) GetMapGauge() (map[string]float64, error) {
+func (m *memStorage) GetMapGauge(ctx context.Context) (map[string]float64, error) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 	// return map возвращает ссылку. надо ккопировать map или обрабатывать range через мютекс
@@ -87,7 +89,7 @@ func (m *memStoreorage) GetMapGauge() (map[string]float64, error) {
 	return copyMapGauge, nil
 }
 
-func (m *memStoreorage) GetCounter(name string) (int64, error) {
+func (m *memStorage) GetCounter(ctx context.Context, name string) (int64, error) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 	value, ok := m.counter[name]
@@ -97,7 +99,7 @@ func (m *memStoreorage) GetCounter(name string) (int64, error) {
 	return value, nil
 }
 
-func (m *memStoreorage) GetGauge(name string) (float64, error) {
+func (m *memStorage) GetGauge(ctx context.Context, name string) (float64, error) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 	value, ok := m.gauge[name]
@@ -108,10 +110,10 @@ func (m *memStoreorage) GetGauge(name string) (float64, error) {
 	return value, nil
 }
 
-func (m *memStoreorage) SaveDB(filename string) error {
+func (m *memStorage) SaveDB(ctx context.Context, filename string) error {
 	db := newMetricsDB()
-	gauges, _ := m.GetMapGauge()
-	counters, _ := m.GetMapCounter()
+	gauges, _ := m.GetMapGauge(ctx)
+	counters, _ := m.GetMapCounter(ctx)
 	db.Gauges = gauges
 	db.Counters = counters
 
@@ -126,7 +128,7 @@ func (m *memStoreorage) SaveDB(filename string) error {
 	return nil
 }
 
-func (m *memStoreorage) LoadDB(filename string) error {
+func (m *memStorage) LoadDB(ctx context.Context, filename string) error {
 	db := newMetricsDB()
 	data, err := os.ReadFile(filename)
 	if err != nil {
@@ -145,11 +147,11 @@ func (m *memStoreorage) LoadDB(filename string) error {
 	return nil
 }
 
-func (m *memStoreorage) WaitWorker() {
+func (m *memStorage) WaitWorker() {
 	m.wg.Wait()
 }
 
-func (m *memStoreorage) StartWorker(ctx context.Context, cfg config.Storage, logger *zap.Logger) {
+func (m *memStorage) StartWorker(ctx context.Context, cfg config.Storage, logger *zap.Logger) {
 	// Используем StoreInterval из конфигурации
 	interval := time.Duration(cfg.StoreInterval) * time.Second
 	ticker := time.NewTicker(interval)
@@ -160,7 +162,7 @@ func (m *memStoreorage) StartWorker(ctx context.Context, cfg config.Storage, log
 		for {
 			select {
 			case <-ticker.C:
-				err := m.SaveDB(cfg.Path)
+				err := m.SaveDB(ctx, cfg.Path)
 				if err != nil {
 					logger.Error("Failed to save metrics", zap.Error(err))
 				}
@@ -168,7 +170,7 @@ func (m *memStoreorage) StartWorker(ctx context.Context, cfg config.Storage, log
 			case <-ctx.Done():
 				// Финальное сохранение при завершении
 
-				err := m.SaveDB(cfg.Path)
+				err := m.SaveDB(ctx, cfg.Path)
 
 				if err != nil {
 					logger.Error("Failed to save metrics during shutdown", zap.Error(err))
@@ -180,7 +182,7 @@ func (m *memStoreorage) StartWorker(ctx context.Context, cfg config.Storage, log
 	}()
 }
 
-func (m *memStoreorage) Ping(ctx context.Context) error {
+func (m *memStorage) Ping(ctx context.Context) error {
 	_ = ctx
 	return nil
 }

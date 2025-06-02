@@ -6,8 +6,11 @@ import (
 	"log"
 	"os"
 
+	"github.com/iudanet/yp-metrics-go/internal/storage"
 	"github.com/jackc/pgx/v5"
 )
+
+var _ storage.Repository = (*postgreStorage)(nil)
 
 var (
 	ErrNotFound = errors.New("not found")
@@ -46,8 +49,8 @@ func New(ctx context.Context, dsn string) *postgreStorage {
 	}
 }
 
-func (p *postgreStorage) SetCounter(name string, value int64) error {
-	_, err := p.conn.Exec(context.Background(), `
+func (p *postgreStorage) SetCounter(ctx context.Context, name string, value int64) error {
+	_, err := p.conn.Exec(ctx, `
 		INSERT INTO counters (name, value)
 		VALUES ($1, $2)
 		ON CONFLICT (name) DO UPDATE
@@ -56,8 +59,8 @@ func (p *postgreStorage) SetCounter(name string, value int64) error {
 	return err
 }
 
-func (p *postgreStorage) SetGauge(name string, value float64) error {
-	_, err := p.conn.Exec(context.Background(), `
+func (p *postgreStorage) SetGauge(ctx context.Context, name string, value float64) error {
+	_, err := p.conn.Exec(ctx, `
 		INSERT INTO gauges (name, value)
 		VALUES ($1, $2)
 		ON CONFLICT (name) DO UPDATE
@@ -66,8 +69,8 @@ func (p *postgreStorage) SetGauge(name string, value float64) error {
 	return err
 }
 
-func (p *postgreStorage) IncrCounter(name string) error {
-	_, err := p.conn.Exec(context.Background(), `
+func (p *postgreStorage) IncrCounter(ctx context.Context, name string) error {
+	_, err := p.conn.Exec(ctx, `
 		INSERT INTO counters (name, value)
 		VALUES ($1, 1)
 		ON CONFLICT (name) DO UPDATE
@@ -76,8 +79,8 @@ func (p *postgreStorage) IncrCounter(name string) error {
 	return err
 }
 
-func (p *postgreStorage) GetMapCounter() (map[string]int64, error) {
-	rows, err := p.conn.Query(context.Background(), "SELECT name, value FROM counters")
+func (p *postgreStorage) GetMapCounter(ctx context.Context) (map[string]int64, error) {
+	rows, err := p.conn.Query(ctx, "SELECT name, value FROM counters")
 	if err != nil {
 		return nil, err
 	}
@@ -95,8 +98,8 @@ func (p *postgreStorage) GetMapCounter() (map[string]int64, error) {
 	return result, nil
 }
 
-func (p *postgreStorage) GetMapGauge() (map[string]float64, error) {
-	rows, err := p.conn.Query(context.Background(), "SELECT name, value FROM gauges")
+func (p *postgreStorage) GetMapGauge(ctx context.Context) (map[string]float64, error) {
+	rows, err := p.conn.Query(ctx, "SELECT name, value FROM gauges")
 	if err != nil {
 		return nil, err
 	}
@@ -114,9 +117,9 @@ func (p *postgreStorage) GetMapGauge() (map[string]float64, error) {
 	return result, nil
 }
 
-func (p *postgreStorage) GetCounter(name string) (int64, error) {
+func (p *postgreStorage) GetCounter(ctx context.Context, name string) (int64, error) {
 	var value int64
-	err := p.conn.QueryRow(context.Background(),
+	err := p.conn.QueryRow(ctx,
 		"SELECT value FROM counters WHERE name = $1", name).Scan(&value)
 	if err == pgx.ErrNoRows {
 		return 0, ErrNotFound
@@ -124,9 +127,9 @@ func (p *postgreStorage) GetCounter(name string) (int64, error) {
 	return value, err
 }
 
-func (p *postgreStorage) GetGauge(name string) (float64, error) {
+func (p *postgreStorage) GetGauge(ctx context.Context, name string) (float64, error) {
 	var value float64
-	err := p.conn.QueryRow(context.Background(),
+	err := p.conn.QueryRow(ctx,
 		"SELECT value FROM gauges WHERE name = $1", name).Scan(&value)
 	if err == pgx.ErrNoRows {
 		return 0, ErrNotFound
@@ -134,11 +137,11 @@ func (p *postgreStorage) GetGauge(name string) (float64, error) {
 	return value, err
 }
 
-func (p *postgreStorage) SaveDB(filename string) error {
+func (p *postgreStorage) SaveDB(ctx context.Context, filename string) error {
 	return nil
 }
 
-func (p *postgreStorage) LoadDB(filename string) error {
+func (p *postgreStorage) LoadDB(ctx context.Context, filename string) error {
 	return nil
 }
 

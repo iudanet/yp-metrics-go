@@ -3,6 +3,7 @@ package agent
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -38,61 +39,61 @@ func NewAgent(cfg *config.AgentConfig, storage storage.Repository) *Agent {
 	return agent
 }
 
-func (a *Agent) GetMetrics() {
+func (a *Agent) GetMetrics(ctx context.Context) {
 	// увеличиваем каждую иттерацию
-	a.counter.IncrCounter("PollCount")
+	a.counter.IncrCounter(ctx, "PollCount")
 	// получаем статистику памяти
-	a.getMemStats()
+	a.getMemStats(ctx)
 	// получаем рандомное число
-	a.writer.SetGauge("RandomValue", utils.GetRandomNumber())
+	a.writer.SetGauge(ctx, "RandomValue", utils.GetRandomNumber())
 }
 
-func (a *Agent) getMemStats() {
+func (a *Agent) getMemStats(ctx context.Context) {
 	runtime.ReadMemStats(a.memstats)
-	a.memStatsMapper()
+	a.memStatsMapper(ctx)
 }
 
-func (a *Agent) memStatsMapper() {
-	a.writer.SetGauge("Alloc", float64(a.memstats.Alloc))
-	a.writer.SetGauge("BuckHashSys", float64(a.memstats.BuckHashSys))
-	a.writer.SetGauge("Frees", float64(a.memstats.Frees))
-	a.writer.SetGauge("GCCPUFraction", a.memstats.GCCPUFraction)
-	a.writer.SetGauge("GCSys", float64(a.memstats.GCSys))
-	a.writer.SetGauge("HeapAlloc", float64(a.memstats.HeapAlloc))
-	a.writer.SetGauge("HeapIdle", float64(a.memstats.HeapIdle))
-	a.writer.SetGauge("HeapInuse", float64(a.memstats.HeapInuse))
-	a.writer.SetGauge("HeapObjects", float64(a.memstats.HeapObjects))
-	a.writer.SetGauge("HeapReleased", float64(a.memstats.HeapReleased))
-	a.writer.SetGauge("HeapSys", float64(a.memstats.HeapSys))
-	a.writer.SetGauge("LastGC", float64(a.memstats.LastGC))
-	a.writer.SetGauge("Lookups", float64(a.memstats.Lookups))
-	a.writer.SetGauge("MCacheInuse", float64(a.memstats.MCacheInuse))
-	a.writer.SetGauge("MCacheSys", float64(a.memstats.MCacheSys))
-	a.writer.SetGauge("Mallocs", float64(a.memstats.Mallocs))
-	a.writer.SetGauge("MSpanInuse", float64(a.memstats.MSpanInuse))
-	a.writer.SetGauge("MSpanSys", float64(a.memstats.MSpanSys))
-	a.writer.SetGauge("NextGC", float64(a.memstats.NextGC))
-	a.writer.SetGauge("NumForcedGC", float64(a.memstats.NumForcedGC))
-	a.writer.SetGauge("NumGC", float64(a.memstats.NumGC))
-	a.writer.SetGauge("OtherSys", float64(a.memstats.OtherSys))
-	a.writer.SetGauge("PauseTotalNs", float64(a.memstats.PauseTotalNs))
-	a.writer.SetGauge("StackInuse", float64(a.memstats.StackInuse))
-	a.writer.SetGauge("StackSys", float64(a.memstats.StackSys))
-	a.writer.SetGauge("Sys", float64(a.memstats.Sys))
-	a.writer.SetGauge("TotalAlloc", float64(a.memstats.TotalAlloc))
+func (a *Agent) memStatsMapper(ctx context.Context) {
+	a.writer.SetGauge(ctx, "Alloc", float64(a.memstats.Alloc))
+	a.writer.SetGauge(ctx, "BuckHashSys", float64(a.memstats.BuckHashSys))
+	a.writer.SetGauge(ctx, "Frees", float64(a.memstats.Frees))
+	a.writer.SetGauge(ctx, "GCCPUFraction", a.memstats.GCCPUFraction)
+	a.writer.SetGauge(ctx, "GCSys", float64(a.memstats.GCSys))
+	a.writer.SetGauge(ctx, "HeapAlloc", float64(a.memstats.HeapAlloc))
+	a.writer.SetGauge(ctx, "HeapIdle", float64(a.memstats.HeapIdle))
+	a.writer.SetGauge(ctx, "HeapInuse", float64(a.memstats.HeapInuse))
+	a.writer.SetGauge(ctx, "HeapObjects", float64(a.memstats.HeapObjects))
+	a.writer.SetGauge(ctx, "HeapReleased", float64(a.memstats.HeapReleased))
+	a.writer.SetGauge(ctx, "HeapSys", float64(a.memstats.HeapSys))
+	a.writer.SetGauge(ctx, "LastGC", float64(a.memstats.LastGC))
+	a.writer.SetGauge(ctx, "Lookups", float64(a.memstats.Lookups))
+	a.writer.SetGauge(ctx, "MCacheInuse", float64(a.memstats.MCacheInuse))
+	a.writer.SetGauge(ctx, "MCacheSys", float64(a.memstats.MCacheSys))
+	a.writer.SetGauge(ctx, "Mallocs", float64(a.memstats.Mallocs))
+	a.writer.SetGauge(ctx, "MSpanInuse", float64(a.memstats.MSpanInuse))
+	a.writer.SetGauge(ctx, "MSpanSys", float64(a.memstats.MSpanSys))
+	a.writer.SetGauge(ctx, "NextGC", float64(a.memstats.NextGC))
+	a.writer.SetGauge(ctx, "NumForcedGC", float64(a.memstats.NumForcedGC))
+	a.writer.SetGauge(ctx, "NumGC", float64(a.memstats.NumGC))
+	a.writer.SetGauge(ctx, "OtherSys", float64(a.memstats.OtherSys))
+	a.writer.SetGauge(ctx, "PauseTotalNs", float64(a.memstats.PauseTotalNs))
+	a.writer.SetGauge(ctx, "StackInuse", float64(a.memstats.StackInuse))
+	a.writer.SetGauge(ctx, "StackSys", float64(a.memstats.StackSys))
+	a.writer.SetGauge(ctx, "Sys", float64(a.memstats.Sys))
+	a.writer.SetGauge(ctx, "TotalAlloc", float64(a.memstats.TotalAlloc))
 }
 
-func (a *Agent) PollWorker() {
+func (a *Agent) PollWorker(ctx context.Context) {
 	for {
-		a.GetMetrics()
+		a.GetMetrics(ctx)
 		time.Sleep(time.Duration(a.config.PollInterval))
 
 	}
 
 }
-func (a *Agent) ReportWorker() {
+func (a *Agent) ReportWorker(ctx context.Context) {
 	for {
-		counter, err := a.reader.GetMapCounter()
+		counter, err := a.reader.GetMapCounter(ctx)
 		if err != nil {
 			log.Println("Ошибка получения счетчика:", err)
 			continue
@@ -104,7 +105,7 @@ func (a *Agent) ReportWorker() {
 				continue
 			}
 		}
-		gaugeMap, err := a.reader.GetMapGauge()
+		gaugeMap, err := a.reader.GetMapGauge(ctx)
 		if err != nil {
 			log.Println("Ошибка получения счетчика:", err)
 			continue

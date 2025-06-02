@@ -2,39 +2,34 @@ package storage
 
 import (
 	"context"
-	"errors"
-)
-
-var (
-	ErrNotFound = errors.New("not found")
 )
 
 // MetricReader определяет методы для чтения метрик
 type MetricReader interface {
-	GetCounter(name string) (int64, error)
-	GetGauge(name string) (float64, error)
-	GetMapGauge() (map[string]float64, error)
-	GetMapCounter() (map[string]int64, error)
+	GetCounter(ctx context.Context, name string) (int64, error)
+	GetGauge(ctx context.Context, name string) (float64, error)
+	GetMapGauge(ctx context.Context) (map[string]float64, error)
+	GetMapCounter(ctx context.Context) (map[string]int64, error)
 }
 
 // MetricWriter определяет методы для записи метрик
 type MetricWriter interface {
-	SetCounter(string, int64) error
-	SetGauge(string, float64) error
+	SetCounter(ctx context.Context, name string, value int64) error
+	SetGauge(ctx context.Context, name string, value float64) error
 	MetricPersistent
 }
 
 type MetricPersistent interface {
-	SaveDB(string) error
-	LoadDB(string) error
+	SaveDB(ctx context.Context, name string) error
+	LoadDB(ctx context.Context, name string) error
 }
 
 // CounterIncrementer выделяет специфическую операцию инкремента
 type CounterIncrementer interface {
-	IncrCounter(string) error
+	IncrCounter(ctx context.Context, name string) error
 }
 type HealthcheckDB interface {
-	Ping(context.Context) error
+	Ping(ctx context.Context) error
 }
 
 // Repository объединяет все интерфейсы, если нужен полный функционал
