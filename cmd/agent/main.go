@@ -9,7 +9,7 @@ import (
 
 	"github.com/iudanet/yp-metrics-go/internal/agent"
 	"github.com/iudanet/yp-metrics-go/internal/config"
-	"github.com/iudanet/yp-metrics-go/internal/storage"
+	localStore "github.com/iudanet/yp-metrics-go/internal/storage/local"
 )
 
 func main() {
@@ -23,7 +23,7 @@ func main() {
 		log.Printf("failed to parse agent flags: %v", err)
 		os.Exit(1)
 	}
-	stor := storage.NewStorage()
+	stor := localStore.New()
 
 	a := agent.NewAgent(cfg, stor)
 	go a.PollWorker()

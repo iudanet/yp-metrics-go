@@ -2,17 +2,22 @@ package storage
 
 import (
 	"context"
+	"errors"
 	"log"
 	"os"
 
 	"github.com/jackc/pgx/v5"
 )
 
+var (
+	ErrNotFound = errors.New("not found")
+)
+
 type postgreStorage struct {
 	conn *pgx.Conn
 }
 
-func NewPostgres(ctx context.Context, dsn string) *postgreStorage {
+func New(ctx context.Context, dsn string) *postgreStorage {
 	conn, err := pgx.Connect(ctx, dsn)
 	if err != nil {
 		log.Fatalf("Unable to connect to database: %v", err)

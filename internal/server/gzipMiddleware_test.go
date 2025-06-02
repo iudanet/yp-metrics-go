@@ -11,7 +11,7 @@ import (
 
 	"github.com/iudanet/yp-metrics-go/internal/config"
 	"github.com/iudanet/yp-metrics-go/internal/logger"
-	"github.com/iudanet/yp-metrics-go/internal/storage"
+	localStore "github.com/iudanet/yp-metrics-go/internal/storage/local"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -47,7 +47,7 @@ func setupTestService(t *testing.T) *service {
 	newLogger, err := logger.New("Info")
 	require.NoError(t, err)
 
-	store := storage.NewStorage()
+	store := localStore.New()
 	cfg := config.NewServerConfig()
 
 	return NewService(store, cfg, newLogger, store)

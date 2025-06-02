@@ -13,7 +13,8 @@ import (
 	"github.com/iudanet/yp-metrics-go/internal/config"
 	"github.com/iudanet/yp-metrics-go/internal/logger"
 	"github.com/iudanet/yp-metrics-go/internal/server"
-	"github.com/iudanet/yp-metrics-go/internal/storage"
+	localStore "github.com/iudanet/yp-metrics-go/internal/storage/local"
+	pgStore "github.com/iudanet/yp-metrics-go/internal/storage/pg"
 	"go.uber.org/zap"
 )
 
@@ -30,7 +31,7 @@ func main() {
 	}
 
 	// делаем регистратор SugaredLogger
-	st := storage.NewStorage()
+	st := localStore.New()
 	cfg := config.ParseServerFlags()
 
 	// восстановление базы из файла
@@ -53,7 +54,7 @@ func main() {
 	}
 	svc := server.NewService(st, cfg, newLogger, st)
 	if cfg.Storage.DatabaseDSN != "" {
-		pg := storage.NewPostgres(ctx, cfg.Storage.DatabaseDSN)
+		pg := pgStore.New(ctx, cfg.Storage.DatabaseDSN)
 		svc = server.NewService(pg, cfg, newLogger, pg)
 	}
 

@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"maps"
 	"os"
 	"sync"
@@ -10,6 +11,10 @@ import (
 
 	"github.com/iudanet/yp-metrics-go/internal/config"
 	"go.uber.org/zap"
+)
+
+var (
+	ErrNotFound = errors.New("not found")
 )
 
 // metricsDB хранилище для персистентного хранения метрик
@@ -25,21 +30,21 @@ func newMetricsDB() *metricsDB {
 	}
 }
 
-type memStorage struct {
+type memStoreorage struct {
 	gauge   map[string]float64
 	counter map[string]int64
 	mutex   sync.RWMutex
 	wg      sync.WaitGroup
 }
 
-func NewStorage() *memStorage {
-	return &memStorage{
+func New() *memStoreorage {
+	return &memStoreorage{
 		gauge:   make(map[string]float64),
 		counter: make(map[string]int64),
 	}
 }
 
-func (m *memStorage) SetCounter(name string, value int64) error {
+func (m *memStoreorage) SetCounter(name string, value int64) error {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	v, ok := m.counter[name]
@@ -52,7 +57,7 @@ func (m *memStorage) SetCounter(name string, value int64) error {
 	return nil
 }
 
-func (m *memStorage) SetGauge(name string, value float64) error {
+func (m *memStoreorage) SetGauge(name string, value float64) error {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.gauge[name] = value
@@ -60,20 +65,20 @@ func (m *memStorage) SetGauge(name string, value float64) error {
 	return nil
 }
 
-func (m *memStorage) IncrCounter(name string) error {
+func (m *memStoreorage) IncrCounter(name string) error {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.counter[name]++
 	return nil
 }
 
-func (m *memStorage) GetMapCounter() (map[string]int64, error) {
+func (m *memStoreorage) GetMapCounter() (map[string]int64, error) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 	return m.counter, nil
 }
 
-func (m *memStorage) GetMapGauge() (map[string]float64, error) {
+func (m *memStoreorage) GetMapGauge() (map[string]float64, error) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 	// return map возвращает ссылку. надо ккопировать map или обрабатывать range через мютекс
@@ -82,7 +87,7 @@ func (m *memStorage) GetMapGauge() (map[string]float64, error) {
 	return copyMapGauge, nil
 }
 
-func (m *memStorage) GetCounter(name string) (int64, error) {
+func (m *memStoreorage) GetCounter(name string) (int64, error) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 	value, ok := m.counter[name]
@@ -92,7 +97,7 @@ func (m *memStorage) GetCounter(name string) (int64, error) {
 	return value, nil
 }
 
-func (m *memStorage) GetGauge(name string) (float64, error) {
+func (m *memStoreorage) GetGauge(name string) (float64, error) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 	value, ok := m.gauge[name]
@@ -103,7 +108,7 @@ func (m *memStorage) GetGauge(name string) (float64, error) {
 	return value, nil
 }
 
-func (m *memStorage) SaveDB(filename string) error {
+func (m *memStoreorage) SaveDB(filename string) error {
 	db := newMetricsDB()
 	gauges, _ := m.GetMapGauge()
 	counters, _ := m.GetMapCounter()
@@ -121,7 +126,7 @@ func (m *memStorage) SaveDB(filename string) error {
 	return nil
 }
 
-func (m *memStorage) LoadDB(filename string) error {
+func (m *memStoreorage) LoadDB(filename string) error {
 	db := newMetricsDB()
 	data, err := os.ReadFile(filename)
 	if err != nil {
@@ -140,11 +145,11 @@ func (m *memStorage) LoadDB(filename string) error {
 	return nil
 }
 
-func (m *memStorage) WaitWorker() {
+func (m *memStoreorage) WaitWorker() {
 	m.wg.Wait()
 }
 
-func (m *memStorage) StartWorker(ctx context.Context, cfg config.Storage, logger *zap.Logger) {
+func (m *memStoreorage) StartWorker(ctx context.Context, cfg config.Storage, logger *zap.Logger) {
 	// Используем StoreInterval из конфигурации
 	interval := time.Duration(cfg.StoreInterval) * time.Second
 	ticker := time.NewTicker(interval)
@@ -175,7 +180,7 @@ func (m *memStorage) StartWorker(ctx context.Context, cfg config.Storage, logger
 	}()
 }
 
-func (m *memStorage) Ping(ctx context.Context) error {
+func (m *memStoreorage) Ping(ctx context.Context) error {
 	_ = ctx
 	return nil
 }

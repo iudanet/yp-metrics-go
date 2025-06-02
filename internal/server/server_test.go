@@ -8,7 +8,7 @@ import (
 
 	"github.com/iudanet/yp-metrics-go/internal/config"
 	"github.com/iudanet/yp-metrics-go/internal/logger"
-	"github.com/iudanet/yp-metrics-go/internal/storage"
+	localStore "github.com/iudanet/yp-metrics-go/internal/storage/local"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -62,7 +62,7 @@ func TestUpdateMetric(t *testing.T) {
 			newLogger, err := logger.New("Info")
 			assert.NoError(t, err)
 
-			store := storage.NewStorage()
+			store := localStore.New()
 			cfg := &config.ServerConfig{
 				MetricServerHost: "localhost:8080",
 			}
@@ -90,7 +90,7 @@ func TestUpdateMetric(t *testing.T) {
 
 // Вспомогательная функция для проверки успешного обновления метрики
 func TestUpdateMetricSuccess(t *testing.T) {
-	store := storage.NewStorage()
+	store := localStore.New()
 	cfg := config.NewServerConfig()
 	newLogger, err := logger.New("Info")
 	assert.NoError(t, err)

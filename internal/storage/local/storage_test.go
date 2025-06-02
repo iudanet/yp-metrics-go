@@ -10,11 +10,11 @@ import (
 func TestMemStorage(t *testing.T) {
 	tests := []struct {
 		name string
-		fn   func(t *testing.T, s Repository)
+		fn   func(t *testing.T, s *memStoreorage)
 	}{
 		{
 			name: "test_counter_operations",
-			fn: func(t *testing.T, s Repository) {
+			fn: func(t *testing.T, s *memStoreorage) {
 				// Set counter
 				err := s.SetCounter("test", 10)
 				require.NoError(t, err)
@@ -31,7 +31,7 @@ func TestMemStorage(t *testing.T) {
 		},
 		{
 			name: "test_gauge_operations",
-			fn: func(t *testing.T, s Repository) {
+			fn: func(t *testing.T, s *memStoreorage) {
 				// Set gauge
 				err := s.SetGauge("test", 10.5)
 				require.NoError(t, err)
@@ -44,7 +44,7 @@ func TestMemStorage(t *testing.T) {
 		},
 		{
 			name: "test_concurrent_access",
-			fn: func(t *testing.T, s Repository) {
+			fn: func(t *testing.T, s *memStoreorage) {
 				// Simulate concurrent access
 				go func() {
 					_ = s.SetGauge("concurrent", 1.0)
@@ -59,7 +59,7 @@ func TestMemStorage(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			storage := NewStorage()
+			storage := New()
 			tt.fn(t, storage)
 		})
 	}

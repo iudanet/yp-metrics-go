@@ -12,7 +12,7 @@ import (
 
 	"github.com/iudanet/yp-metrics-go/internal/config"
 	"github.com/iudanet/yp-metrics-go/internal/models"
-	"github.com/iudanet/yp-metrics-go/internal/storage"
+	localStore "github.com/iudanet/yp-metrics-go/internal/storage/local"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -166,7 +166,7 @@ func TestAgent(t *testing.T) {
 			}
 			serverHost := server.URL[7:]
 			cfg.MetricServerHost = serverHost // Удаляем "http://" из адреса
-			store := storage.NewStorage()
+			store := localStore.New()
 			agent := NewAgent(cfg, store)
 
 			tt.fn(t, agent)
