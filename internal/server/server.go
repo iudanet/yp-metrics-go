@@ -234,3 +234,36 @@ func (s *service) Ping(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 }
+
+func (s *service) UpdateMetricsBatch(w http.ResponseWriter, req *http.Request) {
+	if req.Header.Get("Content-Type") != "application/json" {
+		http.Error(w, "invalid content type", http.StatusUnsupportedMediaType)
+		return
+	}
+
+	var metrics []models.Metrics
+	if err := json.NewDecoder(req.Body).Decode(&metrics); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if len(metrics) == 0 {
+		http.Error(w, "empty batch", http.StatusBadRequest)
+		return
+	}
+
+	ctx := req.Context()
+	if err := s.storage.WriteBatch(ctx, metrics); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Синхронное сохранение если нужно
+	if s.config.Storage.StoreInterval == 0 {
+		_ = s.storage.SaveDB(ctx, s.config.Storage.Path)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(metrics)
+}

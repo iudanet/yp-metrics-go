@@ -28,6 +28,7 @@ func main() {
 	a := agent.NewAgent(cfg, stor)
 	go a.PollWorker(ctxStop)
 	go a.ReportWorker(ctxStop)
+	// go a.ReportWorkerBatch(ctxStop)
 
 	select {
 	case <-ctxStop.Done():

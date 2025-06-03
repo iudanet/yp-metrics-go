@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/iudanet/yp-metrics-go/internal/models"
 	"github.com/iudanet/yp-metrics-go/internal/storage"
 	"github.com/jackc/pgx/v5"
 )
@@ -151,4 +152,40 @@ func (p *postgreStorage) Ping(ctx context.Context) error {
 		return err
 	}
 	return nil
+}
+
+func (p *postgreStorage) WriteBatch(ctx context.Context, metrics []models.Metrics) error {
+	tx, err := p.conn.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	for _, metric := range metrics {
+		switch metric.MType {
+		case "counter":
+			_, err := tx.Exec(ctx, `
+				INSERT INTO counters (name, value)
+				VALUES ($1, $2)
+				ON CONFLICT (name) DO UPDATE
+				SET value = counters.value + EXCLUDED.value
+			`, metric.ID, *metric.Delta)
+			if err != nil {
+				return err
+			}
+		case "gauge":
+			_, err := tx.Exec(ctx, `
+				INSERT INTO gauges (name, value)
+				VALUES ($1, $2)
+				ON CONFLICT (name) DO UPDATE
+				SET value = EXCLUDED.value
+			`, metric.ID, *metric.Value)
+			if err != nil {
+				return err
+			}
+		default:
+			return errors.New("invalid metric type")
+		}
+	}
+	return tx.Commit(ctx)
 }

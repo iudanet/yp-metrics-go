@@ -62,6 +62,7 @@ func main() {
 	m := http.NewServeMux()
 	m.HandleFunc(`POST /update/{typeMetrics}/{name}/{value}`, svc.UpdateMetric)
 	m.HandleFunc(`POST /update/{$}`, svc.UpdateMetricJSON)
+	m.HandleFunc(`POST /updates/{$}`, svc.UpdateMetricsBatch)
 	m.HandleFunc(`GET /value/{typeMetrics}/{name}`, svc.GetMetric)
 	m.HandleFunc(`POST /value/{$}`, svc.GetMetricJSON)
 	m.HandleFunc(`GET /ping`, svc.Ping)

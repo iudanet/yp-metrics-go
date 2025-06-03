@@ -107,5 +107,17 @@ test_iter11:: build test_iter10
         -database-dsn='postgres://metrics:yandex@localhost:5432/metrics_db?sslmode=disable' \
     	-source-path=.
 
+
+
+test_iter12:: build test_iter11
+	ADDRESS="localhost:$(SERVER_PORT)" \
+    	metricstest -test.v -test.run=^TestIteration12$ \
+        -file-storage-path=$(TEMP_FILE) \
+    	-agent-binary-path=cmd/agent/agent \
+    	-binary-path=cmd/server/server \
+    	-server-port=$(SERVER_PORT) \
+        -database-dsn='postgres://metrics:yandex@localhost:5432/metrics_db?sslmode=disable' \
+    	-source-path=.
+
 test::
 	go test ./...

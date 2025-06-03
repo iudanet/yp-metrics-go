@@ -2,6 +2,8 @@ package storage
 
 import (
 	"context"
+
+	"github.com/iudanet/yp-metrics-go/internal/models"
 )
 
 // MetricReader определяет методы для чтения метрик
@@ -17,6 +19,7 @@ type MetricWriter interface {
 	SetCounter(ctx context.Context, name string, value int64) error
 	SetGauge(ctx context.Context, name string, value float64) error
 	MetricPersistent
+	BatchWriter
 }
 
 type MetricPersistent interface {
@@ -30,6 +33,11 @@ type CounterIncrementer interface {
 }
 type HealthcheckDB interface {
 	Ping(ctx context.Context) error
+}
+
+// BatchWriter определяет метод для пакетной записи метрик
+type BatchWriter interface {
+	WriteBatch(ctx context.Context, metrics []models.Metrics) error
 }
 
 // Repository объединяет все интерфейсы, если нужен полный функционал

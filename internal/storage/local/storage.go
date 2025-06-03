@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log"
 	"maps"
 	"os"
 	"sync"
 	"time"
 
 	"github.com/iudanet/yp-metrics-go/internal/config"
+	"github.com/iudanet/yp-metrics-go/internal/models"
 	"github.com/iudanet/yp-metrics-go/internal/storage"
 	"go.uber.org/zap"
 )
@@ -148,6 +150,7 @@ func (m *memStorage) LoadDB(ctx context.Context, filename string) error {
 }
 
 func (m *memStorage) WaitWorker() {
+	// log.Println("Waiting for worker to finish")
 	m.wg.Wait()
 }
 
@@ -184,5 +187,24 @@ func (m *memStorage) StartWorker(ctx context.Context, cfg config.Storage, logger
 
 func (m *memStorage) Ping(ctx context.Context) error {
 	_ = ctx
+	return nil
+}
+
+func (m *memStorage) WriteBatch(ctx context.Context, metrics []models.Metrics) error {
+	for _, metric := range metrics {
+		log.Println("Processing metric:", metric)
+		switch metric.MType {
+		case "counter":
+			if err := m.SetCounter(ctx, metric.ID, *metric.Delta); err != nil {
+				return err
+			}
+		case "gauge":
+			if err := m.SetGauge(ctx, metric.ID, *metric.Value); err != nil {
+				return err
+			}
+		default:
+			return errors.New("invalid metric type")
+		}
+	}
 	return nil
 }

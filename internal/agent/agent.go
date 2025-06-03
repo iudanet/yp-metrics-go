@@ -120,6 +120,54 @@ func (a *Agent) ReportWorker(ctx context.Context) {
 		time.Sleep(time.Duration(a.config.ReportInterval) * time.Second)
 	}
 }
+
+func (a *Agent) ReportWorkerBatch(ctx context.Context) {
+	for {
+		// Собираем все метрики
+		var metrics []models.Metrics
+
+		// Добавляем счетчики
+		counters, err := a.reader.GetMapCounter(ctx)
+		if err != nil {
+			log.Println("Ошибка получения счетчиков:", err)
+			continue
+		}
+		for name, value := range counters {
+			delta := value
+			metrics = append(metrics, models.Metrics{
+				ID:    name,
+				MType: "counter",
+				Delta: &delta,
+			})
+		}
+
+		// Добавляем gauge метрики
+		gauges, err := a.reader.GetMapGauge(ctx)
+		if err != nil {
+			log.Println("Ошибка получения gauge метрик:", err)
+			continue
+		}
+		for name, value := range gauges {
+			val := value
+			metrics = append(metrics, models.Metrics{
+				ID:    name,
+				MType: "gauge",
+				Value: &val,
+			})
+		}
+
+		// Отправляем батч
+		if len(metrics) > 0 {
+			err := a.PushMetricsBatch(metrics)
+			if err != nil {
+				log.Println("Ошибка отправки метрик:", err)
+			}
+		}
+
+		time.Sleep(time.Duration(a.config.ReportInterval) * time.Second)
+	}
+}
+
 func (a *Agent) PushCounter(name string, value int64) error {
 	metric := models.Metrics{
 		ID:    name,
@@ -138,6 +186,50 @@ func (a *Agent) PushGauge(name string, value float64) error {
 	}
 
 	return a.sendCompressedMetric(&metric)
+}
+
+// PushMetricsBatch отправляет метрики батчем на сервер
+func (a *Agent) PushMetricsBatch(metrics []models.Metrics) error {
+	// Проверяем, что батч не пустой
+	if len(metrics) == 0 {
+		return nil
+	}
+
+	// Конвертируем метрики в JSON
+	jsonData, err := json.Marshal(metrics)
+	if err != nil {
+		return fmt.Errorf("failed to marshal metrics to JSON: %w", err)
+	}
+
+	// Сжимаем данные
+	compressedData, err := compressData(jsonData)
+	if err != nil {
+		return fmt.Errorf("failed to compress data: %w", err)
+	}
+
+	// Создаем запрос
+	url := fmt.Sprintf("http://%s/updates/", a.config.MetricServerHost)
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(compressedData))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Устанавливаем заголовки
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Encoding", "gzip")
+
+	// Отправляем запрос
+	resp, err := a.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to push metrics batch: %s", resp.Status)
+	}
+
+	return nil
 }
 
 // sendCompressedMetric sends a metric in JSON format with gzip compression
