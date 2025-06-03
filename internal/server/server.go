@@ -14,11 +14,6 @@ import (
 	"go.uber.org/zap"
 )
 
-const (
-	typeGauge   string = "gauge"
-	typeCounter string = "counter"
-)
-
 func NewService(storage storage.Repository, cfg *config.ServerConfig, logger *zap.Logger, pg storage.Repository) *service {
 	return &service{
 		storage: storage,
@@ -55,7 +50,7 @@ func (s *service) UpdateMetricJSON(w http.ResponseWriter, req *http.Request) {
 	}
 
 	switch metrics.MType {
-	case typeCounter:
+	case models.TypeCounter:
 		err := s.storage.SetCounter(req.Context(), metrics.ID, *metrics.Delta)
 		if err != nil {
 			log.Printf("Failed to set counter: %v", err)
@@ -65,7 +60,7 @@ func (s *service) UpdateMetricJSON(w http.ResponseWriter, req *http.Request) {
 		if s.config.Storage.StoreInterval == 0 {
 			s.storage.SaveDB(req.Context(), s.config.Storage.Path)
 		}
-	case typeGauge:
+	case models.TypeGauge:
 		err := s.storage.SetGauge(req.Context(), metrics.ID, *metrics.Value)
 		if err != nil {
 			log.Printf("Failed to set gauge: %v", err)
@@ -91,7 +86,7 @@ func (s *service) UpdateMetric(w http.ResponseWriter, req *http.Request) {
 	rawValue := req.PathValue("value")
 	log.Printf("Received metric: type=%s name=%s value=%s", typeMetrics, name, rawValue)
 	switch typeMetrics {
-	case typeGauge:
+	case models.TypeGauge:
 		value, err := strconv.ParseFloat(rawValue, 64)
 		if err != nil {
 			http.Error(w, "invalid gauge value", http.StatusBadRequest)
@@ -105,7 +100,7 @@ func (s *service) UpdateMetric(w http.ResponseWriter, req *http.Request) {
 		if s.config.Storage.StoreInterval == 0 {
 			s.storage.SaveDB(req.Context(), s.config.Storage.Path)
 		}
-	case typeCounter:
+	case models.TypeCounter:
 		value, err := strconv.ParseInt(rawValue, 10, 64)
 		if err != nil {
 			http.Error(w, "invalid counter value", http.StatusBadRequest)
@@ -141,7 +136,7 @@ func (s *service) GetMetricJSON(w http.ResponseWriter, req *http.Request) {
 	}
 	var resp models.Metrics
 	switch metrics.MType {
-	case typeGauge:
+	case models.TypeGauge:
 		value, err := s.viewer.GetGauge(req.Context(), metrics.ID)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusNotFound)
@@ -150,7 +145,7 @@ func (s *service) GetMetricJSON(w http.ResponseWriter, req *http.Request) {
 		resp.ID = metrics.ID
 		resp.MType = metrics.MType
 		resp.Value = &value
-	case typeCounter:
+	case models.TypeCounter:
 		delta, err := s.viewer.GetCounter(req.Context(), metrics.ID)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusNotFound)
@@ -179,14 +174,14 @@ func (s *service) GetMetric(w http.ResponseWriter, req *http.Request) {
 	name := req.PathValue("name")
 
 	switch typeMetrics {
-	case typeGauge:
+	case models.TypeGauge:
 		value, err := s.viewer.GetGauge(req.Context(), name)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
 		}
 		fmt.Fprint(w, strconv.FormatFloat(value, 'f', -1, 64))
-	case typeCounter:
+	case models.TypeCounter:
 		value, err := s.viewer.GetCounter(req.Context(), name)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusNotFound)

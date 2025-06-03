@@ -324,7 +324,7 @@ func (p *postgreStorage) WriteBatch(ctx context.Context, metrics []models.Metric
 
 		for _, metric := range metrics {
 			switch metric.MType {
-			case "counter":
+			case models.TypeCounter:
 				_, err := tx.Exec(ctx, `
 					INSERT INTO counters (name, value)
 					VALUES ($1, $2)
@@ -334,7 +334,7 @@ func (p *postgreStorage) WriteBatch(ctx context.Context, metrics []models.Metric
 				if err != nil {
 					return err
 				}
-			case "gauge":
+			case models.TypeGauge:
 				_, err := tx.Exec(ctx, `
 					INSERT INTO gauges (name, value)
 					VALUES ($1, $2)
