@@ -39,7 +39,7 @@ func NewAgent(cfg *config.AgentConfig, storage storage.Repository) *Agent {
 		backoffSchedule: []time.Duration{
 			1 * time.Second,
 			3 * time.Second,
-			10 * time.Second,
+			5 * time.Second,
 		},
 	}
 	return agent

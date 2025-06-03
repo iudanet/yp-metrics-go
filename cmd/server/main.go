@@ -53,7 +53,11 @@ func main() {
 	}
 	svc := server.NewService(st, cfg, newLogger, st)
 	if cfg.Storage.DatabaseDSN != "" {
-		pg := pgStore.New(ctx, cfg.Storage.DatabaseDSN)
+		pg, err := pgStore.New(ctx, cfg.Storage.DatabaseDSN)
+		if err != nil {
+			newLogger.Error("Failed to connect to database", zap.Error(err))
+			return
+		}
 		svc = server.NewService(pg, cfg, newLogger, pg)
 	}
 

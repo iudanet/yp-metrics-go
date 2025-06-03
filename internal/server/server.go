@@ -58,6 +58,7 @@ func (s *service) UpdateMetricJSON(w http.ResponseWriter, req *http.Request) {
 	case typeCounter:
 		err := s.storage.SetCounter(req.Context(), metrics.ID, *metrics.Delta)
 		if err != nil {
+			log.Printf("Failed to set counter: %v", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -67,6 +68,8 @@ func (s *service) UpdateMetricJSON(w http.ResponseWriter, req *http.Request) {
 	case typeGauge:
 		err := s.storage.SetGauge(req.Context(), metrics.ID, *metrics.Value)
 		if err != nil {
+			log.Printf("Failed to set gauge: %v", err)
+
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
