@@ -21,10 +21,11 @@ type Agent struct {
 	memstats *runtime.MemStats
 	config   *config.AgentConfig
 	// storage  storage.Repository
-	writer  storage.MetricWriter
-	counter storage.CounterIncrementer
-	reader  storage.MetricReader
-	client  *http.Client
+	writer          storage.MetricWriter
+	counter         storage.CounterIncrementer
+	reader          storage.MetricReader
+	client          *http.Client
+	backoffSchedule []time.Duration
 }
 
 func NewAgent(cfg *config.AgentConfig, storage storage.Repository) *Agent {
@@ -35,6 +36,11 @@ func NewAgent(cfg *config.AgentConfig, storage storage.Repository) *Agent {
 		counter:  storage,
 		reader:   storage,
 		client:   &http.Client{},
+		backoffSchedule: []time.Duration{
+			1 * time.Second,
+			3 * time.Second,
+			10 * time.Second,
+		},
 	}
 	return agent
 }
@@ -256,12 +262,29 @@ func (a *Agent) sendCompressedMetric(metric *models.Metrics) error {
 	// Set headers
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Content-Encoding", "gzip")
+	var lastErr error
+	for _, backoff := range a.backoffSchedule {
+		err := a.sendRequest(req)
+		if err == nil {
+			return nil // Success
+		}
+		lastErr = err
+		log.Printf("failed to send request: %v", err)
+		log.Printf("retrying in %v", backoff)
+		time.Sleep(backoff)
 
+	}
+	// All retries failed
+	return fmt.Errorf("failed to send request after retries: %v", lastErr)
+}
+
+func (a *Agent) sendRequest(req *http.Request) error {
 	// Send request
 	resp, err := a.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to send request: %w", err)
 	}
+
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
