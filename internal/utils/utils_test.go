@@ -22,9 +22,13 @@ func TestGetRandomNumber(t *testing.T) {
 		{
 			name: "test_random_number_different_values",
 			fn: func(t *testing.T) {
-				first := GetRandomNumber()
-				second := GetRandomNumber()
-				assert.NotEqual(t, first, second)
+				values := make(map[float64]struct{})
+				for range 1000 {
+					v := GetRandomNumber()
+					if _, exists := values[v]; exists {
+						t.Fatalf("Duplicate random value: %v", v)
+					}
+				}
 			},
 		},
 	}

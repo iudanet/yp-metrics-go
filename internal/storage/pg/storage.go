@@ -19,6 +19,14 @@ import (
 
 var _ storage.Repository = (*postgreStorage)(nil)
 
+const (
+	pgPoolMaxConns          = 10
+	pgPoolMinConns          = 2
+	pgPollMaxConnLifetime   = 30 * time.Minute
+	pgPollMinConnIdleTime   = 5 * time.Minute
+	pgPollHealthCheckPeriod = 1 * time.Minute
+)
+
 var (
 	ErrNotFound = errors.New("not found")
 )
@@ -34,11 +42,11 @@ func New(ctx context.Context, dsn string) (*postgreStorage, error) {
 	}
 
 	// Настраиваем пул соединений
-	config.MaxConns = 10
-	config.MinConns = 2
-	config.MaxConnLifetime = 30 * time.Minute
-	config.MaxConnIdleTime = 5 * time.Minute
-	config.HealthCheckPeriod = 1 * time.Minute
+	config.MaxConns = pgPoolMaxConns
+	config.MinConns = pgPoolMinConns
+	config.MaxConnLifetime = pgPollMaxConnLifetime
+	config.MaxConnIdleTime = pgPollMinConnIdleTime
+	config.HealthCheckPeriod = pgPollHealthCheckPeriod
 
 	var pool *pgxpool.Pool
 

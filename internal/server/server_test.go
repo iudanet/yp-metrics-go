@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/iudanet/yp-metrics-go/internal/config"
@@ -68,10 +69,19 @@ func TestUpdateMetric(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			newLogger, err := logger.New("Info")
 			assert.NoError(t, err)
+			tmpFile, err := os.CreateTemp("", "metrics-db-*.json")
+			assert.NoError(t, err)
+			defer os.Remove(tmpFile.Name())
 
 			store := localStore.New()
 			cfg := &config.ServerConfig{
 				MetricServerHost: "localhost:8080",
+				Storage: config.Storage{
+					Restore:       false,
+					Path:          tmpFile.Name(),
+					StoreInterval: 0,
+					DatabaseDSN:   "",
+				},
 			}
 			svc := NewService(store, cfg, newLogger, store)
 
@@ -180,9 +190,19 @@ func TestUpdateMetricsBatch(t *testing.T) {
 			newLogger, err := logger.New("Info")
 			assert.NoError(t, err)
 
+			tmpFile, err := os.CreateTemp("", "metrics-db-*.json")
+			assert.NoError(t, err)
+			defer os.Remove(tmpFile.Name())
+
 			store := localStore.New()
 			cfg := &config.ServerConfig{
 				MetricServerHost: "localhost:8080",
+				Storage: config.Storage{
+					Restore:       false,
+					Path:          tmpFile.Name(),
+					StoreInterval: 0,
+					DatabaseDSN:   "",
+				},
 			}
 			svc := NewService(store, cfg, newLogger, store)
 

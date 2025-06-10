@@ -53,7 +53,11 @@ func (s *service) UpdateMetricJSON(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		if s.config.Storage.StoreInterval == 0 {
-			s.storage.SaveDB(req.Context(), s.config.Storage.Path)
+			err := s.storage.SaveDB(req.Context(), s.config.Storage.Path)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
 		}
 	case models.TypeGauge:
 		err := s.storage.SetGauge(req.Context(), metrics.ID, *metrics.Value)
@@ -63,7 +67,11 @@ func (s *service) UpdateMetricJSON(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		if s.config.Storage.StoreInterval == 0 {
-			s.storage.SaveDB(req.Context(), s.config.Storage.Path)
+			err := s.storage.SaveDB(req.Context(), s.config.Storage.Path)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
 		}
 	default:
 		http.Error(w, "invalid metric type", http.StatusBadRequest)
@@ -91,7 +99,11 @@ func (s *service) UpdateMetric(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		if s.config.Storage.StoreInterval == 0 {
-			s.storage.SaveDB(req.Context(), s.config.Storage.Path)
+			err := s.storage.SaveDB(req.Context(), s.config.Storage.Path)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
 		}
 	case models.TypeCounter:
 		value, err := strconv.ParseInt(rawValue, 10, 64)
@@ -105,7 +117,11 @@ func (s *service) UpdateMetric(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		if s.config.Storage.StoreInterval == 0 {
-			s.storage.SaveDB(req.Context(), s.config.Storage.Path)
+			err := s.storage.SaveDB(req.Context(), s.config.Storage.Path)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
 		}
 	default:
 		http.Error(w, "invalid metric type", http.StatusBadRequest)
@@ -242,10 +258,18 @@ func (s *service) UpdateMetricsBatch(w http.ResponseWriter, req *http.Request) {
 
 	// Синхронное сохранение если нужно
 	if s.config.Storage.StoreInterval == 0 {
-		_ = s.storage.SaveDB(ctx, s.config.Storage.Path)
+		err := s.storage.SaveDB(ctx, s.config.Storage.Path)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(metrics)
+	err := json.NewEncoder(w).Encode(metrics)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
