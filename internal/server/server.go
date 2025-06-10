@@ -3,7 +3,6 @@ package server
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 	"text/template"
@@ -53,7 +52,7 @@ func (s *service) UpdateMetricJSON(w http.ResponseWriter, req *http.Request) {
 	case models.TypeCounter:
 		err := s.storage.SetCounter(req.Context(), metrics.ID, *metrics.Delta)
 		if err != nil {
-			log.Printf("Failed to set counter: %v", err)
+			s.logger.Error("Ошибка при установке counter", zap.Error(err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -63,8 +62,7 @@ func (s *service) UpdateMetricJSON(w http.ResponseWriter, req *http.Request) {
 	case models.TypeGauge:
 		err := s.storage.SetGauge(req.Context(), metrics.ID, *metrics.Value)
 		if err != nil {
-			log.Printf("Failed to set gauge: %v", err)
-
+			s.logger.Error("Ошибка при установке gauge", zap.Error(err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -84,7 +82,6 @@ func (s *service) UpdateMetric(w http.ResponseWriter, req *http.Request) {
 	typeMetrics := req.PathValue("typeMetrics")
 	name := req.PathValue("name")
 	rawValue := req.PathValue("value")
-	log.Printf("Received metric: type=%s name=%s value=%s", typeMetrics, name, rawValue)
 	switch typeMetrics {
 	case models.TypeGauge:
 		value, err := strconv.ParseFloat(rawValue, 64)

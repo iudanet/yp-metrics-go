@@ -4,6 +4,7 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/iudanet/yp-metrics-go/internal/config"
+	"github.com/iudanet/yp-metrics-go/internal/logger"
 	"github.com/iudanet/yp-metrics-go/internal/models"
 	localStore "github.com/iudanet/yp-metrics-go/internal/storage/local"
 	"github.com/stretchr/testify/assert"
@@ -166,8 +168,12 @@ func TestAgent(t *testing.T) {
 			}
 			serverHost := server.URL[7:]
 			cfg.MetricServerHost = serverHost // Удаляем "http://" из адреса
+			newLogger, err := logger.New("Info")
+			if err != nil {
+				log.Fatal(err)
+			}
 			store := localStore.New()
-			agent := NewAgent(cfg, store)
+			agent := NewAgent(cfg, store, newLogger)
 
 			tt.fn(t, agent)
 		})

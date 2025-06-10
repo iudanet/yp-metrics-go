@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"runtime"
 	"time"
@@ -15,6 +14,7 @@ import (
 	"github.com/iudanet/yp-metrics-go/internal/models"
 	"github.com/iudanet/yp-metrics-go/internal/storage"
 	"github.com/iudanet/yp-metrics-go/internal/utils"
+	"go.uber.org/zap"
 )
 
 type Agent struct {
@@ -26,9 +26,10 @@ type Agent struct {
 	reader          storage.MetricReader
 	client          *http.Client
 	backoffSchedule []time.Duration
+	logger          *zap.Logger
 }
 
-func NewAgent(cfg *config.AgentConfig, storage storage.Repository) *Agent {
+func NewAgent(cfg *config.AgentConfig, storage storage.Repository, logger *zap.Logger) *Agent {
 	agent := &Agent{
 		memstats: &runtime.MemStats{},
 		config:   cfg,
@@ -41,6 +42,7 @@ func NewAgent(cfg *config.AgentConfig, storage storage.Repository) *Agent {
 			3 * time.Second,
 			5 * time.Second,
 		},
+		logger: logger,
 	}
 	return agent
 }
@@ -101,25 +103,25 @@ func (a *Agent) ReportWorker(ctx context.Context) {
 	for {
 		counter, err := a.reader.GetMapCounter(ctx)
 		if err != nil {
-			log.Println("Ошибка получения счетчика:", err)
+			a.logger.Error("Ошибка получения счетчика:", zap.Error(err))
 			continue
 		}
 		for nameCounter, valueCounter := range counter {
 			err = a.PushCounter(nameCounter, valueCounter)
 			if err != nil {
-				log.Println(err)
+				a.logger.Error("Ошибка отправки счетчика:", zap.Error(err))
 				continue
 			}
 		}
 		gaugeMap, err := a.reader.GetMapGauge(ctx)
 		if err != nil {
-			log.Println("Ошибка получения счетчика:", err)
+			a.logger.Error("Ошибка получения гауга:", zap.Error(err))
 			continue
 		}
 		for nameGauge, valueGauge := range gaugeMap {
 			err = a.PushGauge(nameGauge, valueGauge)
 			if err != nil {
-				log.Println(err)
+				a.logger.Error("Ошибка отправки гауга:", zap.Error(err))
 				continue
 			}
 		}
@@ -135,7 +137,7 @@ func (a *Agent) ReportWorkerBatch(ctx context.Context) {
 		// Добавляем счетчики
 		counters, err := a.reader.GetMapCounter(ctx)
 		if err != nil {
-			log.Println("Ошибка получения счетчиков:", err)
+			a.logger.Error("Ошибка получения счетчиков:", zap.Error(err))
 			continue
 		}
 		for name, value := range counters {
@@ -150,7 +152,7 @@ func (a *Agent) ReportWorkerBatch(ctx context.Context) {
 		// Добавляем gauge метрики
 		gauges, err := a.reader.GetMapGauge(ctx)
 		if err != nil {
-			log.Println("Ошибка получения gauge метрик:", err)
+			a.logger.Error("Ошибка получения gauge метрик:", zap.Error(err))
 			continue
 		}
 		for name, value := range gauges {
@@ -166,7 +168,7 @@ func (a *Agent) ReportWorkerBatch(ctx context.Context) {
 		if len(metrics) > 0 {
 			err := a.PushMetricsBatch(metrics)
 			if err != nil {
-				log.Println("Ошибка отправки метрик:", err)
+				a.logger.Error("Ошибка отправки метрик:", zap.Error(err))
 			}
 		}
 
@@ -269,8 +271,8 @@ func (a *Agent) sendCompressedMetric(metric *models.Metrics) error {
 			return nil // Success
 		}
 		lastErr = err
-		log.Printf("failed to send request: %v", err)
-		log.Printf("retrying in %v", backoff)
+		a.logger.Error("failed to send request", zap.Error(err))
+		a.logger.Info("retrying in", zap.Duration("dur", backoff))
 		time.Sleep(backoff)
 
 	}

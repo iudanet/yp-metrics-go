@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"log"
 	"maps"
 	"os"
 	"sync"
@@ -150,7 +149,6 @@ func (m *memStorage) LoadDB(ctx context.Context, filename string) error {
 }
 
 func (m *memStorage) WaitWorker() {
-	// log.Println("Waiting for worker to finish")
 	m.wg.Wait()
 }
 
@@ -192,7 +190,6 @@ func (m *memStorage) Ping(ctx context.Context) error {
 
 func (m *memStorage) WriteBatch(ctx context.Context, metrics []models.Metrics) error {
 	for _, metric := range metrics {
-		log.Println("Processing metric:", metric)
 		switch metric.MType {
 		case "counter":
 			if err := m.SetCounter(ctx, metric.ID, *metric.Delta); err != nil {
