@@ -36,10 +36,6 @@ type IndexData struct {
 }
 
 func (s *service) UpdateMetricJSON(w http.ResponseWriter, req *http.Request) {
-	if req.Header.Get("Content-Type") != "application/json" {
-		http.Error(w, "invalid content type", http.StatusUnsupportedMediaType)
-		return
-	}
 	var metrics models.Metrics
 
 	err := json.NewDecoder(req.Body).Decode(&metrics)
@@ -120,10 +116,6 @@ func (s *service) UpdateMetric(w http.ResponseWriter, req *http.Request) {
 }
 
 func (s *service) GetMetricJSON(w http.ResponseWriter, req *http.Request) {
-	if req.Header.Get("Content-Type") != "application/json" {
-		http.Error(w, "invalid content type", http.StatusBadRequest)
-		return
-	}
 	var metrics models.Metrics
 
 	err := json.NewDecoder(req.Body).Decode(&metrics)
@@ -231,11 +223,6 @@ func (s *service) Ping(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *service) UpdateMetricsBatch(w http.ResponseWriter, req *http.Request) {
-	if req.Header.Get("Content-Type") != "application/json" {
-		http.Error(w, "invalid content type", http.StatusUnsupportedMediaType)
-		return
-	}
-
 	var metrics []models.Metrics
 	if err := json.NewDecoder(req.Body).Decode(&metrics); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)

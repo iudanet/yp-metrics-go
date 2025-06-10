@@ -64,11 +64,12 @@ func main() {
 	// chi отключен для проходждения тестов. хотел сделать с нативным новым роутером.
 	_ = chi.NewRouter()
 	m := http.NewServeMux()
+	m.Handle(`POST /update/{$}`, svc.CheckContentType(http.HandlerFunc(svc.UpdateMetricJSON)))
+	m.Handle(`POST /updates/{$}`, svc.CheckContentType(http.HandlerFunc(svc.UpdateMetricsBatch)))
+	m.Handle(`POST /value/{$}`, svc.CheckContentType(http.HandlerFunc(svc.GetMetricJSON)))
+
 	m.HandleFunc(`POST /update/{typeMetrics}/{name}/{value}`, svc.UpdateMetric)
-	m.HandleFunc(`POST /update/{$}`, svc.UpdateMetricJSON)
-	m.HandleFunc(`POST /updates/{$}`, svc.UpdateMetricsBatch)
 	m.HandleFunc(`GET /value/{typeMetrics}/{name}`, svc.GetMetric)
-	m.HandleFunc(`POST /value/{$}`, svc.GetMetricJSON)
 	m.HandleFunc(`GET /ping`, svc.Ping)
 	m.HandleFunc(`GET /{$}`, svc.GetIndex)
 
