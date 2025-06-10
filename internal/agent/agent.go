@@ -92,87 +92,109 @@ func (a *Agent) memStatsMapper(ctx context.Context) {
 }
 
 func (a *Agent) PollWorker(ctx context.Context) {
+	ticker := time.NewTicker(time.Duration(a.config.PollInterval) * time.Second)
+	defer ticker.Stop()
 	for {
-		a.GetMetrics(ctx)
-		time.Sleep(time.Duration(a.config.PollInterval))
+		select {
+		case <-ctx.Done():
+			a.logger.Info("PollWorker: context canceled, stopping")
+			return
+		case <-ticker.C:
+			a.GetMetrics(ctx)
 
+		}
 	}
 
 }
 func (a *Agent) ReportWorker(ctx context.Context) {
+	ticker := time.NewTicker(time.Duration(a.config.ReportInterval) * time.Second)
+	defer ticker.Stop()
 	for {
-		counter, err := a.reader.GetMapCounter(ctx)
-		if err != nil {
-			a.logger.Error("Ошибка получения счетчика:", zap.Error(err))
-			continue
-		}
-		for nameCounter, valueCounter := range counter {
-			err = a.PushCounter(nameCounter, valueCounter)
+
+		select {
+		case <-ctx.Done():
+			a.logger.Info("ReportWorker: context canceled, stopping")
+			return
+		case <-ticker.C:
+			counter, err := a.reader.GetMapCounter(ctx)
 			if err != nil {
-				a.logger.Error("Ошибка отправки счетчика:", zap.Error(err))
+				a.logger.Error("Ошибка получения счетчика:", zap.Error(err))
 				continue
 			}
-		}
-		gaugeMap, err := a.reader.GetMapGauge(ctx)
-		if err != nil {
-			a.logger.Error("Ошибка получения гауга:", zap.Error(err))
-			continue
-		}
-		for nameGauge, valueGauge := range gaugeMap {
-			err = a.PushGauge(nameGauge, valueGauge)
+			for nameCounter, valueCounter := range counter {
+				err = a.PushCounter(nameCounter, valueCounter)
+				if err != nil {
+					a.logger.Error("Ошибка отправки счетчика:", zap.Error(err))
+					continue
+				}
+			}
+			gaugeMap, err := a.reader.GetMapGauge(ctx)
 			if err != nil {
-				a.logger.Error("Ошибка отправки гауга:", zap.Error(err))
+				a.logger.Error("Ошибка получения гауга:", zap.Error(err))
 				continue
 			}
+			for nameGauge, valueGauge := range gaugeMap {
+				err = a.PushGauge(nameGauge, valueGauge)
+				if err != nil {
+					a.logger.Error("Ошибка отправки гауга:", zap.Error(err))
+					continue
+				}
+			}
 		}
-		time.Sleep(time.Duration(a.config.ReportInterval) * time.Second)
 	}
 }
 
 func (a *Agent) ReportWorkerBatch(ctx context.Context) {
+	ticker := time.NewTicker(time.Duration(a.config.ReportInterval) * time.Second)
+	defer ticker.Stop()
+
 	for {
-		// Собираем все метрики
-		var metrics []models.Metrics
+		select {
+		case <-ctx.Done():
+			a.logger.Info("ReportWorkerBatch: context canceled, stopping")
+			return
+		case <-ticker.C:
+			var metrics []models.Metrics
 
-		// Добавляем счетчики
-		counters, err := a.reader.GetMapCounter(ctx)
-		if err != nil {
-			a.logger.Error("Ошибка получения счетчиков:", zap.Error(err))
-			continue
-		}
-		for name, value := range counters {
-			delta := value
-			metrics = append(metrics, models.Metrics{
-				ID:    name,
-				MType: "counter",
-				Delta: &delta,
-			})
-		}
-
-		// Добавляем gauge метрики
-		gauges, err := a.reader.GetMapGauge(ctx)
-		if err != nil {
-			a.logger.Error("Ошибка получения gauge метрик:", zap.Error(err))
-			continue
-		}
-		for name, value := range gauges {
-			val := value
-			metrics = append(metrics, models.Metrics{
-				ID:    name,
-				MType: "gauge",
-				Value: &val,
-			})
-		}
-
-		// Отправляем батч
-		if len(metrics) > 0 {
-			err := a.PushMetricsBatch(metrics)
+			// Добавляем счетчики
+			counters, err := a.reader.GetMapCounter(ctx)
 			if err != nil {
-				a.logger.Error("Ошибка отправки метрик:", zap.Error(err))
+				a.logger.Error("Ошибка получения счетчиков:", zap.Error(err))
+				continue
 			}
-		}
+			for name, value := range counters {
+				delta := value
+				metrics = append(metrics, models.Metrics{
+					ID:    name,
+					MType: "counter",
+					Delta: &delta,
+				})
+			}
 
-		time.Sleep(time.Duration(a.config.ReportInterval) * time.Second)
+			// Добавляем gauge метрики
+			gauges, err := a.reader.GetMapGauge(ctx)
+			if err != nil {
+				a.logger.Error("Ошибка получения gauge метрик:", zap.Error(err))
+				continue
+			}
+			for name, value := range gauges {
+				val := value
+				metrics = append(metrics, models.Metrics{
+					ID:    name,
+					MType: "gauge",
+					Value: &val,
+				})
+			}
+
+			// Отправляем батч
+			if len(metrics) > 0 {
+				err := a.PushMetricsBatch(metrics)
+				if err != nil {
+					a.logger.Error("Ошибка отправки метрик:", zap.Error(err))
+				}
+			}
+
+		}
 	}
 }
 
