@@ -4,16 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
-	"net"
-	"strings"
 	"time"
 
 	"github.com/iudanet/yp-metrics-go/internal/models"
+	"github.com/iudanet/yp-metrics-go/internal/retry"
 	"github.com/iudanet/yp-metrics-go/internal/storage"
-	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -51,7 +47,7 @@ func New(ctx context.Context, dsn string) (*postgreStorage, error) {
 	var pool *pgxpool.Pool
 
 	// Добавляем retry при подключении
-	err = withRetry(func() error {
+	err = retry.WithRetry(func() error {
 		var err error
 		pool, err = pgxpool.NewWithConfig(ctx, config)
 		if err != nil {
@@ -64,7 +60,7 @@ func New(ctx context.Context, dsn string) (*postgreStorage, error) {
 	}
 
 	// Создаем таблицы если их нет
-	err = withRetry(func() error {
+	err = retry.WithRetry(func() error {
 		conn, err := pool.Acquire(ctx)
 		if err != nil {
 			return err
@@ -93,75 +89,8 @@ func New(ctx context.Context, dsn string) (*postgreStorage, error) {
 	}, nil
 }
 
-// withRetry выполняет операцию с повторными попытками при retriable ошибках
-func withRetry(op func() error) error {
-	var lastErr error
-	backoffSchedule := []time.Duration{
-		1 * time.Second,
-		3 * time.Second,
-		5 * time.Second,
-	}
-
-	for _, backoff := range backoffSchedule {
-		err := op()
-		if err == nil {
-			return nil
-		}
-
-		// Проверяем, является ли ошибка retriable
-		if isRetriableError(err) {
-			lastErr = err
-			log.Printf("retriable error occurred: %v, retrying in %v", err, backoff)
-			time.Sleep(backoff)
-			continue
-		}
-
-		// Не retriable ошибка
-		return err
-	}
-
-	return fmt.Errorf("failed after retries: %w", lastErr)
-}
-
-// isRetriableError проверяет, является ли ошибка retriable
-func isRetriableError(err error) bool {
-	// Проверяем ошибки PostgreSQL
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) {
-		// Ошибки соединения (Class 08)
-		if pgErr.Code == pgerrcode.ConnectionException ||
-			pgErr.Code == pgerrcode.ConnectionDoesNotExist ||
-			pgErr.Code == pgerrcode.ConnectionFailure ||
-			pgErr.Code == pgerrcode.SQLClientUnableToEstablishSQLConnection ||
-			pgErr.Code == pgerrcode.SQLServerRejectedEstablishmentOfSQLConnection ||
-			pgErr.Code == pgerrcode.TransactionResolutionUnknown {
-			return true
-		}
-	}
-
-	// Проверяем сетевые ошибки
-	var netErr net.Error
-	if errors.As(err, &netErr) {
-		return true
-	}
-
-	// Проверяем закрытые соединения
-	if strings.Contains(err.Error(), "use of closed network connection") {
-		return true
-	}
-
-	// Проверяем другие retriable ошибки
-	if errors.Is(err, context.DeadlineExceeded) ||
-		errors.Is(err, context.Canceled) ||
-		errors.Is(err, pgx.ErrTxClosed) {
-		return true
-	}
-
-	return false
-}
-
 func (p *postgreStorage) SetCounter(ctx context.Context, name string, value int64) error {
-	return withRetry(func() error {
+	return retry.WithRetry(func() error {
 		conn, err := p.pool.Acquire(ctx)
 		if err != nil {
 			return err
@@ -179,7 +108,7 @@ func (p *postgreStorage) SetCounter(ctx context.Context, name string, value int6
 }
 
 func (p *postgreStorage) IncrCounter(ctx context.Context, name string) error {
-	return withRetry(func() error {
+	return retry.WithRetry(func() error {
 		conn, err := p.pool.Acquire(ctx)
 		if err != nil {
 			return err
@@ -197,7 +126,7 @@ func (p *postgreStorage) IncrCounter(ctx context.Context, name string) error {
 }
 
 func (p *postgreStorage) SetGauge(ctx context.Context, name string, value float64) error {
-	return withRetry(func() error {
+	return retry.WithRetry(func() error {
 		conn, err := p.pool.Acquire(ctx)
 		if err != nil {
 			return err
@@ -216,7 +145,7 @@ func (p *postgreStorage) SetGauge(ctx context.Context, name string, value float6
 
 func (p *postgreStorage) GetCounter(ctx context.Context, name string) (int64, error) {
 	var value int64
-	err := withRetry(func() error {
+	err := retry.WithRetry(func() error {
 		conn, err := p.pool.Acquire(ctx)
 		if err != nil {
 			return err
@@ -235,7 +164,7 @@ func (p *postgreStorage) GetCounter(ctx context.Context, name string) (int64, er
 
 func (p *postgreStorage) GetGauge(ctx context.Context, name string) (float64, error) {
 	var value float64
-	err := withRetry(func() error {
+	err := retry.WithRetry(func() error {
 		conn, err := p.pool.Acquire(ctx)
 		if err != nil {
 			return err
@@ -254,7 +183,7 @@ func (p *postgreStorage) GetGauge(ctx context.Context, name string) (float64, er
 
 func (p *postgreStorage) GetMapCounter(ctx context.Context) (map[string]int64, error) {
 	var result map[string]int64
-	err := withRetry(func() error {
+	err := retry.WithRetry(func() error {
 		conn, err := p.pool.Acquire(ctx)
 		if err != nil {
 			return err
@@ -283,7 +212,7 @@ func (p *postgreStorage) GetMapCounter(ctx context.Context) (map[string]int64, e
 
 func (p *postgreStorage) GetMapGauge(ctx context.Context) (map[string]float64, error) {
 	var result map[string]float64
-	err := withRetry(func() error {
+	err := retry.WithRetry(func() error {
 		conn, err := p.pool.Acquire(ctx)
 		if err != nil {
 			return err
@@ -311,13 +240,13 @@ func (p *postgreStorage) GetMapGauge(ctx context.Context) (map[string]float64, e
 }
 
 func (p *postgreStorage) Ping(ctx context.Context) error {
-	return withRetry(func() error {
+	return retry.WithRetry(func() error {
 		return p.pool.Ping(ctx)
 	})
 }
 
 func (p *postgreStorage) WriteBatch(ctx context.Context, metrics []models.Metrics) error {
-	return withRetry(func() error {
+	return retry.WithRetry(func() error {
 		conn, err := p.pool.Acquire(ctx)
 		if err != nil {
 			return err

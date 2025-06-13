@@ -12,6 +12,7 @@ import (
 
 	"github.com/iudanet/yp-metrics-go/internal/config"
 	"github.com/iudanet/yp-metrics-go/internal/models"
+	"github.com/iudanet/yp-metrics-go/internal/retry"
 	"github.com/iudanet/yp-metrics-go/internal/storage"
 	"github.com/iudanet/yp-metrics-go/internal/utils"
 	"go.uber.org/zap"
@@ -21,12 +22,11 @@ type Agent struct {
 	memstats *runtime.MemStats
 	config   *config.AgentConfig
 	// storage  storage.Repository
-	writer          storage.MetricWriter
-	counter         storage.CounterIncrementer
-	reader          storage.MetricReader
-	client          *http.Client
-	backoffSchedule []time.Duration
-	logger          *zap.Logger
+	writer  storage.MetricWriter
+	counter storage.CounterIncrementer
+	reader  storage.MetricReader
+	client  *http.Client
+	logger  *zap.Logger
 }
 
 func NewAgent(cfg *config.AgentConfig, storage storage.Repository, logger *zap.Logger) *Agent {
@@ -37,11 +37,7 @@ func NewAgent(cfg *config.AgentConfig, storage storage.Repository, logger *zap.L
 		counter:  storage,
 		reader:   storage,
 		client:   &http.Client{},
-		backoffSchedule: []time.Duration{
-			1 * time.Second,
-			3 * time.Second,
-			5 * time.Second,
-		},
+
 		logger: logger,
 	}
 	return agent
@@ -286,20 +282,10 @@ func (a *Agent) sendCompressedMetric(metric *models.Metrics) error {
 	// Set headers
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Content-Encoding", "gzip")
-	var lastErr error
-	for _, backoff := range a.backoffSchedule {
-		err := a.sendRequest(req)
-		if err == nil {
-			return nil // Success
-		}
-		lastErr = err
-		a.logger.Error("failed to send request", zap.Error(err))
-		a.logger.Info("retrying in", zap.Duration("dur", backoff))
-		time.Sleep(backoff)
 
-	}
-	// All retries failed
-	return fmt.Errorf("failed to send request after retries: %v", lastErr)
+	return retry.WithRetry(func() error {
+		return a.sendRequest(req)
+	})
 }
 
 func (a *Agent) sendRequest(req *http.Request) error {
