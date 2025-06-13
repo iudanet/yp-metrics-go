@@ -6,6 +6,8 @@ import (
 	"github.com/iudanet/yp-metrics-go/internal/models"
 )
 
+//go:generate mockgen -source=repository.go -destination=../../mocks/mock_storage.go -package=mocks
+
 // MetricReader определяет методы для чтения метрик
 type MetricReader interface {
 	GetCounter(ctx context.Context, name string) (int64, error)
@@ -41,6 +43,7 @@ type BatchWriter interface {
 }
 
 // Repository объединяет все интерфейсы, если нужен полный функционал
+
 type Repository interface {
 	MetricReader
 	MetricWriter

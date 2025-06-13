@@ -7,8 +7,11 @@ build-agent::
 build-server::
 	go build -o cmd/server/server cmd/server/main.go
 
-build:: statictest test build-agent build-server
+build::  statictest test build-agent build-server
 
+
+go_generate::
+	go generate ./...
 statictest::
 	go vet -vettool=$(shell which statictest) ./...
 
@@ -127,5 +130,5 @@ test_iter13:: build test_iter12
         -database-dsn='postgres://metrics:yandex@localhost:5432/metrics_db?sslmode=disable' \
     	-source-path=.
 
-test::
+test:: go_generate
 	go test ./...

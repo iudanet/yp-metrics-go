@@ -3,6 +3,7 @@ package retry
 import (
 	"context"
 	"errors"
+	"net"
 	"testing"
 
 	"github.com/jackc/pgerrcode"
@@ -22,20 +23,56 @@ func TestIsRetriableError(t *testing.T) {
 			expected: true,
 		},
 		{
+			name:     "network error",
+			err:      &net.DNSError{IsTimeout: true},
+			expected: true,
+		},
+		{
 			name:     "context canceled",
 			err:      context.Canceled,
 			expected: true,
+		},
+		{
+			name:     "closed network connection",
+			err:      errors.New("use of closed network connection"),
+			expected: true,
+		},
+		{
+			name:     "backend error",
+			err:      errors.New("database is not available"),
+			expected: false,
 		},
 		{
 			name:     "non-retriable error",
 			err:      errors.New("some error"),
 			expected: false,
 		},
+		{
+			name:     "retried connection exception",
+			err:      &pgconn.PgError{Code: pgerrcode.TransactionResolutionUnknown},
+			expected: true,
+		},
+		{
+			name:     "retried connection does not exist",
+			err:      &pgconn.PgError{Code: pgerrcode.ConnectionDoesNotExist},
+			expected: true,
+		},
+		{
+			name:     "retried SQL client unable to establish connection",
+			err:      &pgconn.PgError{Code: pgerrcode.SQLClientUnableToEstablishSQLConnection},
+			expected: true,
+		},
+		{
+			name:     "invalid connection error",
+			err:      errors.New("invalid connection"),
+			expected: false,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.expected, isRetriableError(tt.err))
+			got := isRetriableError(tt.err)
+			assert.Equal(t, tt.expected, got)
 		})
 	}
 }

@@ -43,13 +43,20 @@ func NewAgent(cfg *config.AgentConfig, storage storage.Repository, logger *zap.L
 	return agent
 }
 
-func (a *Agent) GetMetrics(ctx context.Context) {
+func (a *Agent) GetMetrics(ctx context.Context) error {
 	// увеличиваем каждую иттерацию
-	a.counter.IncrCounter(ctx, "PollCount")
+	err := a.counter.IncrCounter(ctx, "PollCount")
+	if err != nil {
+		return err
+	}
 	// получаем статистику памяти
 	a.getMemStats(ctx)
 	// получаем рандомное число
-	a.writer.SetGauge(ctx, "RandomValue", utils.GetRandomNumber())
+	err = a.writer.SetGauge(ctx, "RandomValue", utils.GetRandomNumber())
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (a *Agent) getMemStats(ctx context.Context) {
@@ -57,34 +64,89 @@ func (a *Agent) getMemStats(ctx context.Context) {
 	a.memStatsMapper(ctx)
 }
 
-func (a *Agent) memStatsMapper(ctx context.Context) {
-	a.writer.SetGauge(ctx, "Alloc", float64(a.memstats.Alloc))
-	a.writer.SetGauge(ctx, "BuckHashSys", float64(a.memstats.BuckHashSys))
-	a.writer.SetGauge(ctx, "Frees", float64(a.memstats.Frees))
-	a.writer.SetGauge(ctx, "GCCPUFraction", a.memstats.GCCPUFraction)
-	a.writer.SetGauge(ctx, "GCSys", float64(a.memstats.GCSys))
-	a.writer.SetGauge(ctx, "HeapAlloc", float64(a.memstats.HeapAlloc))
-	a.writer.SetGauge(ctx, "HeapIdle", float64(a.memstats.HeapIdle))
-	a.writer.SetGauge(ctx, "HeapInuse", float64(a.memstats.HeapInuse))
-	a.writer.SetGauge(ctx, "HeapObjects", float64(a.memstats.HeapObjects))
-	a.writer.SetGauge(ctx, "HeapReleased", float64(a.memstats.HeapReleased))
-	a.writer.SetGauge(ctx, "HeapSys", float64(a.memstats.HeapSys))
-	a.writer.SetGauge(ctx, "LastGC", float64(a.memstats.LastGC))
-	a.writer.SetGauge(ctx, "Lookups", float64(a.memstats.Lookups))
-	a.writer.SetGauge(ctx, "MCacheInuse", float64(a.memstats.MCacheInuse))
-	a.writer.SetGauge(ctx, "MCacheSys", float64(a.memstats.MCacheSys))
-	a.writer.SetGauge(ctx, "Mallocs", float64(a.memstats.Mallocs))
-	a.writer.SetGauge(ctx, "MSpanInuse", float64(a.memstats.MSpanInuse))
-	a.writer.SetGauge(ctx, "MSpanSys", float64(a.memstats.MSpanSys))
-	a.writer.SetGauge(ctx, "NextGC", float64(a.memstats.NextGC))
-	a.writer.SetGauge(ctx, "NumForcedGC", float64(a.memstats.NumForcedGC))
-	a.writer.SetGauge(ctx, "NumGC", float64(a.memstats.NumGC))
-	a.writer.SetGauge(ctx, "OtherSys", float64(a.memstats.OtherSys))
-	a.writer.SetGauge(ctx, "PauseTotalNs", float64(a.memstats.PauseTotalNs))
-	a.writer.SetGauge(ctx, "StackInuse", float64(a.memstats.StackInuse))
-	a.writer.SetGauge(ctx, "StackSys", float64(a.memstats.StackSys))
-	a.writer.SetGauge(ctx, "Sys", float64(a.memstats.Sys))
-	a.writer.SetGauge(ctx, "TotalAlloc", float64(a.memstats.TotalAlloc))
+func (a *Agent) memStatsMapper(ctx context.Context) error {
+	if err := a.writer.SetGauge(ctx, "Alloc", float64(a.memstats.Alloc)); err != nil {
+		return err
+	}
+	if err := a.writer.SetGauge(ctx, "BuckHashSys", float64(a.memstats.BuckHashSys)); err != nil {
+		return err
+	}
+	if err := a.writer.SetGauge(ctx, "Frees", float64(a.memstats.Frees)); err != nil {
+		return err
+	}
+	if err := a.writer.SetGauge(ctx, "GCCPUFraction", a.memstats.GCCPUFraction); err != nil {
+		return err
+	}
+	if err := a.writer.SetGauge(ctx, "GCSys", float64(a.memstats.GCSys)); err != nil {
+		return err
+	}
+	if err := a.writer.SetGauge(ctx, "HeapAlloc", float64(a.memstats.HeapAlloc)); err != nil {
+		return err
+	}
+	if err := a.writer.SetGauge(ctx, "HeapIdle", float64(a.memstats.HeapIdle)); err != nil {
+		return err
+	}
+	if err := a.writer.SetGauge(ctx, "HeapInuse", float64(a.memstats.HeapInuse)); err != nil {
+		return err
+	}
+	if err := a.writer.SetGauge(ctx, "HeapObjects", float64(a.memstats.HeapObjects)); err != nil {
+		return err
+	}
+	if err := a.writer.SetGauge(ctx, "HeapReleased", float64(a.memstats.HeapReleased)); err != nil {
+		return err
+	}
+	if err := a.writer.SetGauge(ctx, "HeapSys", float64(a.memstats.HeapSys)); err != nil {
+		return err
+	}
+	if err := a.writer.SetGauge(ctx, "LastGC", float64(a.memstats.LastGC)); err != nil {
+		return err
+	}
+	if err := a.writer.SetGauge(ctx, "Lookups", float64(a.memstats.Lookups)); err != nil {
+		return err
+	}
+	if err := a.writer.SetGauge(ctx, "MCacheInuse", float64(a.memstats.MCacheInuse)); err != nil {
+		return err
+	}
+	if err := a.writer.SetGauge(ctx, "MCacheSys", float64(a.memstats.MCacheSys)); err != nil {
+		return err
+	}
+	if err := a.writer.SetGauge(ctx, "Mallocs", float64(a.memstats.Mallocs)); err != nil {
+		return err
+	}
+	if err := a.writer.SetGauge(ctx, "MSpanInuse", float64(a.memstats.MSpanInuse)); err != nil {
+		return err
+	}
+	if err := a.writer.SetGauge(ctx, "MSpanSys", float64(a.memstats.MSpanSys)); err != nil {
+		return err
+	}
+	if err := a.writer.SetGauge(ctx, "NextGC", float64(a.memstats.NextGC)); err != nil {
+		return err
+	}
+	if err := a.writer.SetGauge(ctx, "NumForcedGC", float64(a.memstats.NumForcedGC)); err != nil {
+		return err
+	}
+	if err := a.writer.SetGauge(ctx, "NumGC", float64(a.memstats.NumGC)); err != nil {
+		return err
+	}
+	if err := a.writer.SetGauge(ctx, "OtherSys", float64(a.memstats.OtherSys)); err != nil {
+		return err
+	}
+	if err := a.writer.SetGauge(ctx, "PauseTotalNs", float64(a.memstats.PauseTotalNs)); err != nil {
+		return err
+	}
+	if err := a.writer.SetGauge(ctx, "StackInuse", float64(a.memstats.StackInuse)); err != nil {
+		return err
+	}
+	if err := a.writer.SetGauge(ctx, "StackSys", float64(a.memstats.StackSys)); err != nil {
+		return err
+	}
+	if err := a.writer.SetGauge(ctx, "Sys", float64(a.memstats.Sys)); err != nil {
+		return err
+	}
+	if err := a.writer.SetGauge(ctx, "TotalAlloc", float64(a.memstats.TotalAlloc)); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (a *Agent) PollWorker(ctx context.Context) {

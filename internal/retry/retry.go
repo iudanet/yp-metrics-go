@@ -14,6 +14,8 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
+var ErrMaxRetriesReached = errors.New("maximum retries reached")
+
 // withRetry выполняет операцию с повторными попытками при retriable ошибках
 func WithRetry(op func() error) error {
 	var lastErr error
@@ -29,19 +31,17 @@ func WithRetry(op func() error) error {
 			return nil
 		}
 
-		// Проверяем, является ли ошибка retriable
-		if isRetriableError(err) {
-			lastErr = err
-			log.Printf("retriable error occurred: %v, retrying in %v", err, backoff)
-			time.Sleep(backoff)
-			continue
+		if !isRetriableError(err) {
+			return err
 		}
 
-		// Не retriable ошибка
-		return err
+		lastErr = err
+		log.Printf("retriable error occurred: %v, retrying in %v", err, backoff)
+		time.Sleep(backoff)
+
 	}
 
-	return fmt.Errorf("failed after retries: %w", lastErr)
+	return fmt.Errorf("%w: %v", ErrMaxRetriesReached, lastErr)
 }
 
 // isRetriableError проверяет, является ли ошибка retriable
@@ -59,7 +59,13 @@ func isRetriableError(err error) bool {
 			return true
 		}
 	}
-
+	// Ошибки HTTP 5xx считаем retriable
+	var httpErr interface {
+		HTTPStatusCode() int
+	}
+	if errors.As(err, &httpErr) && httpErr.HTTPStatusCode() >= 500 {
+		return true
+	}
 	// Проверяем сетевые ошибки
 	var netErr net.Error
 	if errors.As(err, &netErr) {
