@@ -14,28 +14,24 @@ import (
 
 func TestAgentRetryLogic(t *testing.T) {
 	tests := []struct {
-		name            string
-		failTimes       int
-		expectedRetries int
-		shouldSucceed   bool
+		name          string
+		failTimes     int
+		shouldSucceed bool
 	}{
 		{
-			name:            "successOnFirstAttempt",
-			failTimes:       0,
-			expectedRetries: 0,
-			shouldSucceed:   true,
+			name:          "successOnFirstAttempt",
+			failTimes:     0,
+			shouldSucceed: true,
 		},
 		{
-			name:            "successOnSecondAttempt",
-			failTimes:       1,
-			expectedRetries: 1,
-			shouldSucceed:   true,
+			name:          "successOnSecondAttempt",
+			failTimes:     1,
+			shouldSucceed: true,
 		},
 		{
-			name:            "failAfterAllAttempts",
-			failTimes:       3,
-			expectedRetries: 3,
-			shouldSucceed:   false,
+			name:          "failAfterAllAttempts",
+			failTimes:     3,
+			shouldSucceed: false,
 		},
 	}
 
