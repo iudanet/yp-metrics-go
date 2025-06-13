@@ -18,6 +18,19 @@ import (
 	"go.uber.org/zap"
 )
 
+type HTTPError struct {
+	StatusCode int
+	Status     string
+}
+
+func (e *HTTPError) Error() string {
+	return fmt.Sprintf("HTTP error: %s", e.Status)
+}
+
+func (e *HTTPError) HTTPStatusCode() int {
+	return e.StatusCode
+}
+
 type Agent struct {
 	memstats *runtime.MemStats
 	config   *config.AgentConfig
@@ -307,17 +320,9 @@ func (a *Agent) PushMetricsBatch(metrics []models.Metrics) error {
 	req.Header.Set("Content-Encoding", "gzip")
 
 	// Отправляем запрос
-	resp, err := a.client.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to send request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to push metrics batch: %s", resp.Status)
-	}
-
-	return nil
+	return retry.WithRetry(func() error {
+		return a.sendRequest(req)
+	})
 }
 
 // sendCompressedMetric sends a metric in JSON format with gzip compression
@@ -360,7 +365,10 @@ func (a *Agent) sendRequest(req *http.Request) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to push metric: %s", resp.Status)
+		return &HTTPError{
+			StatusCode: resp.StatusCode,
+			Status:     resp.Status,
+		}
 	}
 
 	return nil

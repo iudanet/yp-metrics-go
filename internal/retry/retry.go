@@ -31,7 +31,7 @@ func WithRetry(op func() error) error {
 			return nil
 		}
 
-		if !isRetriableError(err) {
+		if !isRetriable(err) {
 			return err
 		}
 
@@ -44,8 +44,8 @@ func WithRetry(op func() error) error {
 	return fmt.Errorf("%w: %v", ErrMaxRetriesReached, lastErr)
 }
 
-// isRetriableError проверяет, является ли ошибка retriable
-func isRetriableError(err error) bool {
+// isRetriable проверяет, является ли ошибка retriable
+func isRetriable(err error) bool {
 	// Проверяем ошибки PostgreSQL
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) {
