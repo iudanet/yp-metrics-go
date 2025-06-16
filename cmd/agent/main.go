@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"github.com/iudanet/yp-metrics-go/internal/agent"
@@ -32,14 +33,25 @@ func main() {
 	stor := localStore.New()
 
 	a := agent.NewAgent(cfg, stor, newLogger)
-	go a.PollWorker(ctxStop)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		a.PollWorker(ctxStop)
+	}()
 
-	go a.ReportWorkerBatch(ctxStop)
-
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		a.ReportWorkerBatch(ctxStop)
+	}()
 	select {
 	case <-ctxStop.Done():
 		newLogger.Info("Agent stopped")
 	case <-ctxCancel.Done():
 		newLogger.Info("Agent canceled")
 	}
+	// Wait for all goroutines to finish
+	wg.Wait()
+	newLogger.Info("All workers have finished")
 }

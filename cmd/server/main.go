@@ -65,7 +65,7 @@ func main() {
 	_ = chi.NewRouter()
 	m := http.NewServeMux()
 	m.Handle(`POST /update/{$}`, svc.CheckContentType(http.HandlerFunc(svc.UpdateMetricJSON)))
-	m.Handle(`POST /updates/{$}`, svc.CheckContentType(http.HandlerFunc(svc.UpdateMetricsBatch)))
+	m.Handle(`POST /updates/{$}`, svc.CheckContentType(svc.VerifyHash(http.HandlerFunc(svc.UpdateMetricsBatch))))
 	m.Handle(`POST /value/{$}`, svc.CheckContentType(http.HandlerFunc(svc.GetMetricJSON)))
 
 	m.HandleFunc(`POST /update/{typeMetrics}/{name}/{value}`, svc.UpdateMetric)

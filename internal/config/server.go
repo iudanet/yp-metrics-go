@@ -10,6 +10,7 @@ import (
 type ServerConfig struct {
 	MetricServerHost string
 	Storage          Storage
+	SginKey          string
 }
 
 type Storage struct {
@@ -22,6 +23,7 @@ type Storage struct {
 func NewServerConfig() *ServerConfig {
 	return &ServerConfig{
 		MetricServerHost: "localhost:8080",
+		SginKey:          "",
 		Storage: Storage{
 			Restore:       false,
 			Path:          "/tmp/metrics-db.json",
@@ -37,6 +39,7 @@ func ParseServerFlags() *ServerConfig {
 	flag.StringVar(&cfg.MetricServerHost, "a", cfg.MetricServerHost, "server address. ENV: ADDRESS")
 	flag.StringVar(&cfg.Storage.Path, "f", cfg.Storage.Path, "db file. ENV: FILE_STORAGE_PATH ")
 	flag.StringVar(&cfg.Storage.DatabaseDSN, "d", cfg.Storage.DatabaseDSN, "Postgres DSN uri postgres://username:password@localhost:5432/metrics_db. ENV: DATABASE_DSN ")
+	flag.StringVar(&cfg.SginKey, "k", cfg.SginKey, "sgin key. ENV: KEY ")
 	flag.IntVar(&cfg.Storage.StoreInterval, "i", cfg.Storage.StoreInterval, "Store Interval. ENV: STORE_INTERVAL")
 	flag.BoolVar(&cfg.Storage.Restore, "r", cfg.Storage.Restore, "Restore from disk. Env: RESTORE")
 	flag.Parse()
@@ -44,6 +47,10 @@ func ParseServerFlags() *ServerConfig {
 	envAddress := os.Getenv("ADDRESS")
 	if envAddress != "" {
 		cfg.MetricServerHost = envAddress
+	}
+	envKey := os.Getenv("KEY")
+	if envKey != "" {
+		cfg.SginKey = envKey
 	}
 	envFileStoragePath := os.Getenv("FILE_STORAGE_PATH")
 	if envFileStoragePath != "" {

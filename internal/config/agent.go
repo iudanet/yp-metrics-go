@@ -11,6 +11,7 @@ type AgentConfig struct {
 	ReportInterval   int
 	PollInterval     int
 	MetricServerHost string
+	SginKey          string
 }
 
 func NewAgentConfig() *AgentConfig {
@@ -18,6 +19,7 @@ func NewAgentConfig() *AgentConfig {
 		PollInterval:     2,
 		ReportInterval:   10,
 		MetricServerHost: "localhost:8080",
+		SginKey:          "",
 	}
 }
 
@@ -27,12 +29,17 @@ func ParseAgentFlags() (*AgentConfig, error) {
 	flag.IntVar(&cfg.PollInterval, "p", 2, "poll interval seconds")
 	flag.IntVar(&cfg.ReportInterval, "r", 10, "report interval seconds")
 	flag.StringVar(&cfg.MetricServerHost, "a", cfg.MetricServerHost, "server address")
+	flag.StringVar(&cfg.SginKey, "k", cfg.SginKey, "Sgin key")
 
 	flag.Parse()
 
 	envADDRESS := os.Getenv("ADDRESS")
 	if envADDRESS != "" {
 		cfg.MetricServerHost = envADDRESS
+	}
+	envKEY := os.Getenv("KEY")
+	if envKEY != "" {
+		cfg.SginKey = envKEY
 	}
 	envReportInterval := os.Getenv("REPORT_INTERVAL")
 	if envReportInterval != "" {

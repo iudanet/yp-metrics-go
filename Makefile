@@ -6,7 +6,11 @@ build-agent::
 	go build -o cmd/agent/agent cmd/agent/main.go
 build-server::
 	go build -o cmd/server/server cmd/server/main.go
+run-server::
+	go run cmd/server/main.go -k testKey
 
+run-agent::
+	go run cmd/agent/main.go -k testKey
 build::  statictest test build-agent build-server
 
 
@@ -130,5 +134,18 @@ test_iter13:: build test_iter12
         -database-dsn='postgres://metrics:yandex@localhost:5432/metrics_db?sslmode=disable' \
     	-source-path=.
 
+test_iter14:: build test_race
+	ADDRESS="localhost:$(SERVER_PORT)" \
+    	metricstest -test.v -test.run=^TestIteration14/TestCollectAgentMetrics/gauge/TotalAlloc$ \
+    	-agent-binary-path=cmd/agent/agent \
+    	-binary-path=cmd/server/server \
+        -key="KeyTest" \
+    	-server-port=$(SERVER_PORT) \
+        -database-dsn='postgres://metrics:yandex@localhost:5432/metrics_db?sslmode=disable' \
+    	-source-path=.
+
+
 test:: go_generate
 	go test ./...
+test_race::
+	go test -v -race ./...

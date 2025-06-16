@@ -218,55 +218,75 @@ func (a *Agent) ReportWorker(ctx context.Context) {
 func (a *Agent) ReportWorkerBatch(ctx context.Context) {
 	ticker := time.NewTicker(time.Duration(a.config.ReportInterval) * time.Second)
 	defer ticker.Stop()
+	metrics, err := a.getMetrics(ctx)
+	if err != nil {
+		a.logger.Error("Ошибка получения метрик:", zap.Error(err))
+	}
 
+	// Отправляем батч
+	if len(metrics) > 0 {
+		err := a.PushMetricsBatch(metrics)
+		if err != nil {
+			a.logger.Error("Ошибка отправки метрик:", zap.Error(err))
+		}
+	}
 	for {
 		select {
 		case <-ctx.Done():
 			a.logger.Info("ReportWorkerBatch: context canceled, stopping")
 			return
 		case <-ticker.C:
-			var metrics []models.Metrics
-
-			// Добавляем счетчики
-			counters, err := a.reader.GetMapCounter(ctx)
+			metrics, err := a.getMetrics(ctx)
 			if err != nil {
-				a.logger.Error("Ошибка получения счетчиков:", zap.Error(err))
+				a.logger.Info("Ошибка получения метрик:", zap.String("error", err.Error()))
 				continue
-			}
-			for name, value := range counters {
-				delta := value
-				metrics = append(metrics, models.Metrics{
-					ID:    name,
-					MType: "counter",
-					Delta: &delta,
-				})
-			}
-
-			// Добавляем gauge метрики
-			gauges, err := a.reader.GetMapGauge(ctx)
-			if err != nil {
-				a.logger.Error("Ошибка получения gauge метрик:", zap.Error(err))
-				continue
-			}
-			for name, value := range gauges {
-				val := value
-				metrics = append(metrics, models.Metrics{
-					ID:    name,
-					MType: "gauge",
-					Value: &val,
-				})
 			}
 
 			// Отправляем батч
 			if len(metrics) > 0 {
 				err := a.PushMetricsBatch(metrics)
 				if err != nil {
-					a.logger.Error("Ошибка отправки метрик:", zap.Error(err))
+					a.logger.Info("Ошибка отправки метрик:", zap.String("error", err.Error()))
 				}
 			}
 
 		}
 	}
+}
+
+func (a *Agent) getMetrics(ctx context.Context) ([]models.Metrics, error) {
+	var metrics []models.Metrics
+
+	// Добавляем счетчики
+	counters, err := a.reader.GetMapCounter(ctx)
+	if err != nil {
+		a.logger.Error("Ошибка получения счетчиков:", zap.Error(err))
+		return nil, err
+	}
+	for name, value := range counters {
+		delta := value
+		metrics = append(metrics, models.Metrics{
+			ID:    name,
+			MType: "counter",
+			Delta: &delta,
+		})
+	}
+
+	// Добавляем gauge метрики
+	gauges, err := a.reader.GetMapGauge(ctx)
+	if err != nil {
+		a.logger.Error("Ошибка получения gauge метрик:", zap.Error(err))
+		return nil, err
+	}
+	for name, value := range gauges {
+		val := value
+		metrics = append(metrics, models.Metrics{
+			ID:    name,
+			MType: "gauge",
+			Value: &val,
+		})
+	}
+	return metrics, nil
 }
 
 func (a *Agent) PushCounter(name string, value int64) error {
@@ -318,7 +338,11 @@ func (a *Agent) PushMetricsBatch(metrics []models.Metrics) error {
 	// Устанавливаем заголовки
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Content-Encoding", "gzip")
+	if a.config.SginKey != "" {
+		hash := utils.CalculateHash(jsonData, a.config.SginKey)
+		req.Header.Set("HashSHA256", hash)
 
+	}
 	// Отправляем запрос
 	return retry.WithRetry(func() error {
 		return a.sendRequest(req)
@@ -349,7 +373,10 @@ func (a *Agent) sendCompressedMetric(metric *models.Metrics) error {
 	// Set headers
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Content-Encoding", "gzip")
-
+	if a.config.SginKey != "" {
+		hash := utils.CalculateHash(jsonData, a.config.SginKey)
+		req.Header.Set("HashSHA256", hash)
+	}
 	return retry.WithRetry(func() error {
 		return a.sendRequest(req)
 	})
