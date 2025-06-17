@@ -41,15 +41,18 @@ func TestParseAgentFlags(t *testing.T) {
 				PollInterval:     2,
 				ReportInterval:   10,
 				MetricServerHost: "localhost:8080",
+				RateLimit:        1,
 			},
 		},
 		{
 			name: "command_line_flags",
-			args: []string{programName, "-p", "5", "-r", "15", "-a", "localhost:9090"},
+			args: []string{programName, "-k", "testKey", "-p", "5", "-r", "15", "-l", "5", "-a", "localhost:9090"},
 			expected: &AgentConfig{
 				PollInterval:     5,
 				ReportInterval:   15,
 				MetricServerHost: "localhost:9090",
+				RateLimit:        5,
+				SginKey:          "testKey",
 			},
 		},
 		{
@@ -59,25 +62,33 @@ func TestParseAgentFlags(t *testing.T) {
 				"ADDRESS":         "localhost:7070",
 				"REPORT_INTERVAL": "20",
 				"POLL_INTERVAL":   "3",
+				"KEY":             "testKey2",
+				"RATE_LIMIT":      "5",
 			},
 			expected: &AgentConfig{
 				PollInterval:     3,
 				ReportInterval:   20,
 				MetricServerHost: "localhost:7070",
+				RateLimit:        5,
+				SginKey:          "testKey2",
 			},
 		},
 		{
 			name: "env_vars_override_flags",
-			args: []string{programName, "-p", "5", "-r", "15", "-a", "localhost:9090"},
+			args: []string{programName, "-k", "testKey", "-p", "5", "-r", "15", "-l", "5", "-a", "localhost:9090"},
 			envVars: map[string]string{
 				"ADDRESS":         "localhost:7070",
 				"REPORT_INTERVAL": "20",
 				"POLL_INTERVAL":   "3",
+				"KEY":             "testKey3",
+				"RATE_LIMIT":      "6",
 			},
 			expected: &AgentConfig{
 				PollInterval:     3,
 				ReportInterval:   20,
 				MetricServerHost: "localhost:7070",
+				RateLimit:        6,
+				SginKey:          "testKey3",
 			},
 		},
 		{
@@ -107,6 +118,8 @@ func TestParseAgentFlags(t *testing.T) {
 			os.Unsetenv("ADDRESS")
 			os.Unsetenv("REPORT_INTERVAL")
 			os.Unsetenv("POLL_INTERVAL")
+			os.Unsetenv("KEY")
+			os.Unsetenv("RATE_LIMIT")
 
 			// Устанавливаем тестовые переменные окружения
 			for k, v := range tt.envVars {

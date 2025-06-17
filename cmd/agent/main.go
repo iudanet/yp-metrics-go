@@ -39,12 +39,13 @@ func main() {
 		defer wg.Done()
 		a.PollWorker(ctxStop)
 	}()
-
+	go a.StartWorkers(ctxStop)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		a.ReportWorkerBatch(ctxStop)
 	}()
+
 	select {
 	case <-ctxStop.Done():
 		newLogger.Info("Agent stopped")

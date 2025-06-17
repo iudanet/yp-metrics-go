@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"runtime"
+	"sync"
 	"time"
 
 	"github.com/iudanet/yp-metrics-go/internal/config"
@@ -15,6 +16,8 @@ import (
 	"github.com/iudanet/yp-metrics-go/internal/retry"
 	"github.com/iudanet/yp-metrics-go/internal/storage"
 	"github.com/iudanet/yp-metrics-go/internal/utils"
+	"github.com/shirou/gopsutil/cpu"
+	"github.com/shirou/gopsutil/mem"
 	"go.uber.org/zap"
 )
 
@@ -32,24 +35,26 @@ func (e *HTTPError) HTTPStatusCode() int {
 }
 
 type Agent struct {
-	memstats *runtime.MemStats
-	config   *config.AgentConfig
-	// storage  storage.Repository
-	writer  storage.MetricWriter
-	counter storage.CounterIncrementer
-	reader  storage.MetricReader
-	client  *http.Client
-	logger  *zap.Logger
+	memstats  *runtime.MemStats
+	config    *config.AgentConfig
+	writer    storage.MetricWriter
+	counter   storage.CounterIncrementer
+	reader    storage.MetricReader
+	client    *http.Client
+	logger    *zap.Logger
+	metricsCh chan []models.Metrics
+	workerWg  sync.WaitGroup
 }
 
 func NewAgent(cfg *config.AgentConfig, storage storage.Repository, logger *zap.Logger) *Agent {
 	agent := &Agent{
-		memstats: &runtime.MemStats{},
-		config:   cfg,
-		writer:   storage,
-		counter:  storage,
-		reader:   storage,
-		client:   &http.Client{},
+		memstats:  &runtime.MemStats{},
+		config:    cfg,
+		writer:    storage,
+		counter:   storage,
+		reader:    storage,
+		client:    &http.Client{},
+		metricsCh: make(chan []models.Metrics, cfg.RateLimit),
 
 		logger: logger,
 	}
@@ -69,6 +74,12 @@ func (a *Agent) GetMetrics(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
+	err = a.collectPSUtilMetrics(ctx)
+	if err != nil {
+		a.logger.Error("Failed to collect psutil metrics", zap.Error(err))
+	}
+
 	return nil
 }
 
@@ -161,6 +172,34 @@ func (a *Agent) memStatsMapper(ctx context.Context) error {
 	}
 	return nil
 }
+func (a *Agent) collectPSUtilMetrics(ctx context.Context) error {
+	// Собираем метрики памяти
+	v, err := mem.VirtualMemory()
+	if err != nil {
+		return fmt.Errorf("failed to get memory stats: %w", err)
+	}
+
+	if err := a.writer.SetGauge(ctx, "TotalMemory", float64(v.Total)); err != nil {
+		return err
+	}
+	if err := a.writer.SetGauge(ctx, "FreeMemory", float64(v.Free)); err != nil {
+		return err
+	}
+
+	// Собираем метрики CPU
+	percent, err := cpu.Percent(0, false)
+	if err != nil {
+		return fmt.Errorf("failed to get CPU stats: %w", err)
+	}
+
+	for i, p := range percent {
+		if err := a.writer.SetGauge(ctx, fmt.Sprintf("CPUutilization%d", i+1), p); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
 
 func (a *Agent) PollWorker(ctx context.Context) {
 	ticker := time.NewTicker(time.Duration(a.config.PollInterval) * time.Second)
@@ -218,38 +257,28 @@ func (a *Agent) ReportWorker(ctx context.Context) {
 func (a *Agent) ReportWorkerBatch(ctx context.Context) {
 	ticker := time.NewTicker(time.Duration(a.config.ReportInterval) * time.Second)
 	defer ticker.Stop()
-	metrics, err := a.getMetrics(ctx)
-	if err != nil {
-		a.logger.Error("Ошибка получения метрик:", zap.Error(err))
-	}
 
-	// Отправляем батч
-	if len(metrics) > 0 {
-		err := a.PushMetricsBatch(metrics)
-		if err != nil {
-			a.logger.Error("Ошибка отправки метрик:", zap.Error(err))
-		}
-	}
 	for {
 		select {
 		case <-ctx.Done():
 			a.logger.Info("ReportWorkerBatch: context canceled, stopping")
+			close(a.metricsCh) // Закрываем канал для завершения воркеров
+			a.workerWg.Wait()  // Ждем завершения всех воркеров
 			return
 		case <-ticker.C:
 			metrics, err := a.getMetrics(ctx)
 			if err != nil {
-				a.logger.Info("Ошибка получения метрик:", zap.String("error", err.Error()))
+				a.logger.Error("Failed to get metrics", zap.Error(err))
 				continue
 			}
 
-			// Отправляем батч
-			if len(metrics) > 0 {
-				err := a.PushMetricsBatch(metrics)
-				if err != nil {
-					a.logger.Info("Ошибка отправки метрик:", zap.String("error", err.Error()))
-				}
+			// Отправляем метрики в канал для обработки воркерами
+			select {
+			case a.metricsCh <- metrics:
+				// Метрики успешно отправлены в канал
+			default:
+				a.logger.Warn("Metrics channel is full, dropping batch")
 			}
-
 		}
 	}
 }
@@ -399,6 +428,38 @@ func (a *Agent) sendRequest(req *http.Request) error {
 	}
 
 	return nil
+}
+
+func (a *Agent) StartWorkers(ctx context.Context) {
+	if a.config.RateLimit <= 0 {
+		a.config.RateLimit = 1
+	}
+	for range a.config.RateLimit {
+		a.workerWg.Add(1)
+		go a.worker(ctx)
+	}
+}
+
+func (a *Agent) worker(ctx context.Context) {
+	defer a.workerWg.Done()
+
+	for {
+		select {
+		case <-ctx.Done():
+			a.logger.Info("Worker stopped")
+			return
+		case metrics, ok := <-a.metricsCh:
+			if !ok {
+				return
+			}
+			if len(metrics) > 0 {
+				err := a.PushMetricsBatch(metrics)
+				if err != nil {
+					a.logger.Error("Failed to push metrics batch", zap.Error(err))
+				}
+			}
+		}
+	}
 }
 
 // compressData compresses data using gzip
