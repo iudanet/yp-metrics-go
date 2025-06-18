@@ -1,69 +1,107 @@
 package config
 
 import (
+	"flag"
 	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNewServerConfig(t *testing.T) {
-	cfg := NewServerConfig()
-
-	assert.Equal(t, "localhost:8080", cfg.MetricServerHost, "default address should be localhost:8080")
-}
-
-func TestParseServerFlags_Environment(t *testing.T) {
-	// Сохраняем оригинальное значение переменной окружения
-	oldAddress := os.Getenv("ADDRESS")
-	storageCfg := Storage{Restore: false, Path: "/tmp/metrics-db.json", StoreInterval: 300, DatabaseDSN: ""}
-	// Восстанавливаем оригинальное значение после теста
-	defer func() {
-		os.Setenv("ADDRESS", oldAddress)
-	}()
-
+func TestParseServerFlags(t *testing.T) {
 	tests := []struct {
 		name     string
 		envVars  map[string]string
-		expected ServerConfig
+		args     []string
+		expected *ServerConfig
 	}{
 		{
-			name: "env_overrides_default",
-			envVars: map[string]string{
-				"ADDRESS": "localhost:9090",
-			},
-			expected: ServerConfig{
-				MetricServerHost: "localhost:9090",
-				Storage:          storageCfg,
+			name: "Default_values",
+			args: []string{"cmd"},
+			expected: &ServerConfig{
+				MetricServerHost: "localhost:8080",
+				Storage: Storage{
+					Restore:       false,
+					Path:          "/tmp/metrics-db.json",
+					StoreInterval: 300,
+					DatabaseDSN:   "",
+				},
 			},
 		},
 		{
-			name:    "no_env_vars",
-			envVars: map[string]string{},
-			expected: ServerConfig{
-				MetricServerHost: "localhost:8080",
-				Storage:          storageCfg,
+			name: "Command_line_flags",
+			args: []string{"cmd", "-a", "127.0.0.1:9090", "-f", "/tmp/custom.json", "-d", "postgres://user:pass@localhost/db", "-k", "secret", "-i", "60", "-r=true"},
+			expected: &ServerConfig{
+				MetricServerHost: "127.0.0.1:9090",
+				Storage: Storage{
+					Restore:       true,
+					Path:          "/tmp/custom.json",
+					StoreInterval: 60,
+					DatabaseDSN:   "postgres://user:pass@localhost/db",
+				},
+				SginKey: "secret",
+			},
+		},
+		{
+			name: "Environment_variables",
+			args: []string{"cmd"},
+			envVars: map[string]string{
+				"ADDRESS":           "0.0.0.0:8080",
+				"FILE_STORAGE_PATH": "/env/path.json",
+				"DATABASE_DSN":      "postgres://env@localhost/db",
+				"KEY":               "env-secret",
+				"STORE_INTERVAL":    "120",
+				"RESTORE":           "true",
+			},
+			expected: &ServerConfig{
+				MetricServerHost: "0.0.0.0:8080",
+				Storage: Storage{
+					Restore:       true,
+					Path:          "/env/path.json",
+					StoreInterval: 120,
+					DatabaseDSN:   "postgres://env@localhost/db",
+				},
+				SginKey: "env-secret",
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Очищаем переменную окружения
-			os.Unsetenv("ADDRESS")
+			if len(tt.args) == 0 {
+				t.Fatal("tt.args cannot be empty")
+			}
+			// Сбрасываем флаги перед каждым тестом
+			flag.CommandLine = flag.NewFlagSet(tt.args[0], flag.ExitOnError)
+			// Сохраняем оригинальные значения
+			oldArgs := os.Args
+			oldEnv := make(map[string]string)
+			for k := range tt.envVars {
+				oldEnv[k] = os.Getenv(k)
+			}
 
-			// Устанавливаем тестовые переменные окружения
+			defer func() {
+				// Восстанавливаем окружение
+				os.Args = oldArgs
+				for k, v := range oldEnv {
+					os.Setenv(k, v)
+				}
+				flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+			}()
+
+			// Устанавливаем тестовые значения
+			os.Args = tt.args
 			for k, v := range tt.envVars {
-				err := os.Setenv(k, v)
-				assert.NoError(t, err, "failed to set env variable")
+				os.Setenv(k, v)
 			}
 
-			cfg := NewServerConfig()
-			if addr := os.Getenv("ADDRESS"); addr != "" {
-				cfg.MetricServerHost = addr
-			}
+			// Выполняем тестируемую функцию
+			cfg := ParseServerFlags()
 
-			assert.Equal(t, tt.expected, *cfg)
+			// Проверяем результаты
+			assert.Equal(t, tt.expected.MetricServerHost, cfg.MetricServerHost)
+			assert.Equal(t, tt.expected.Storage, cfg.Storage)
+			assert.Equal(t, tt.expected.SginKey, cfg.SginKey)
 		})
 	}
 }

@@ -434,7 +434,7 @@ func (a *Agent) StartWorkers(ctx context.Context) {
 	if a.config.RateLimit <= 0 {
 		a.config.RateLimit = 1
 	}
-	for range a.config.RateLimit {
+	for i := 0; i < a.config.RateLimit; i++ {
 		a.workerWg.Add(1)
 		go a.worker(ctx)
 	}

@@ -1,0 +1,163 @@
+package server
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"github.com/iudanet/yp-metrics-go/internal/config"
+	"github.com/iudanet/yp-metrics-go/internal/logger"
+	"github.com/iudanet/yp-metrics-go/internal/models"
+	localStore "github.com/iudanet/yp-metrics-go/internal/storage/local"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestUpdateMetricJSON(t *testing.T) {
+	tests := []struct {
+		name        string
+		metric      models.Metrics
+		expectError bool
+	}{
+		{
+			name: "Valid gauge",
+			metric: models.Metrics{
+				ID:    "testGauge",
+				MType: "gauge",
+				Value: ptrFloat64(10.5),
+			},
+		},
+		{
+			name: "Valid counter",
+			metric: models.Metrics{
+				ID:    "testCounter",
+				MType: "counter",
+				Delta: ptrInt64(5),
+			},
+		},
+		{
+			name: "Invalid type",
+			metric: models.Metrics{
+				ID:    "invalid",
+				MType: "invalid",
+			},
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store := localStore.New()
+			cfg := config.NewServerConfig()
+			logger, _ := logger.New("info")
+			svc := NewService(store, cfg, logger, store)
+
+			body, _ := json.Marshal(tt.metric)
+			req := httptest.NewRequest(http.MethodPost, "/update/", bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+
+			svc.UpdateMetricJSON(w, req)
+
+			if tt.expectError {
+				assert.Equal(t, http.StatusBadRequest, w.Code)
+			} else {
+				assert.Equal(t, http.StatusOK, w.Code)
+
+				// Проверяем запись в хранилище
+				switch tt.metric.MType {
+				case "gauge":
+					value, _ := store.GetGauge(req.Context(), tt.metric.ID)
+					assert.Equal(t, *tt.metric.Value, value)
+				case "counter":
+					value, _ := store.GetCounter(req.Context(), tt.metric.ID)
+					assert.Equal(t, *tt.metric.Delta, value)
+				}
+			}
+		})
+	}
+}
+
+func TestGetMetricJSON(t *testing.T) {
+	tests := []struct {
+		name        string
+		metricType  string
+		metricName  string
+		expectError bool
+	}{
+		{
+			name:       "Existing gauge",
+			metricType: "gauge",
+			metricName: "testGauge",
+		},
+		{
+			name:       "Existing counter",
+			metricType: "counter",
+			metricName: "testCounter",
+		},
+		{
+			name:        "Non-existent metric",
+			metricType:  "gauge",
+			metricName:  "unknown",
+			expectError: true,
+		},
+		{
+			name:        "Invalid type",
+			metricType:  "invalid",
+			metricName:  "test",
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store := localStore.New()
+			cfg := config.NewServerConfig()
+			logger, _ := logger.New("info")
+			svc := NewService(store, cfg, logger, store)
+
+			// Подготавливаем тестовые данные
+			if tt.metricName == "testGauge" {
+				store.SetGauge(context.Background(), tt.metricName, 10.5)
+			} else if tt.metricName == "testCounter" {
+				store.SetCounter(context.Background(), tt.metricName, 5)
+			}
+
+			reqMetric := models.Metrics{
+				ID:    tt.metricName,
+				MType: tt.metricType,
+			}
+
+			body, _ := json.Marshal(reqMetric)
+			req := httptest.NewRequest(http.MethodPost, "/value/", bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+
+			svc.GetMetricJSON(w, req)
+
+			if tt.expectError {
+				assert.NotEqual(t, http.StatusOK, w.Code)
+			} else {
+				assert.Equal(t, http.StatusOK, w.Code)
+
+				var resp models.Metrics
+				err := json.NewDecoder(w.Body).Decode(&resp)
+				require.NoError(t, err)
+
+				assert.Equal(t, tt.metricName, resp.ID)
+				assert.Equal(t, tt.metricType, resp.MType)
+
+				if tt.metricType == "gauge" {
+					assert.NotNil(t, resp.Value)
+					assert.Equal(t, 10.5, *resp.Value)
+				} else {
+					assert.NotNil(t, resp.Delta)
+					assert.Equal(t, int64(5), *resp.Delta)
+				}
+			}
+		})
+	}
+}

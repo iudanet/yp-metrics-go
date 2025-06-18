@@ -3,17 +3,26 @@ package server
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+
+	"github.com/iudanet/yp-metrics-go/internal/config"
+	"github.com/iudanet/yp-metrics-go/internal/logger"
+	localStore "github.com/iudanet/yp-metrics-go/internal/storage/local"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestCheckContentType(t *testing.T) {
-	// Создаем mock сервиса
-	s := &service{}
+	// Setup
+	cfg := config.NewServerConfig()
+	logger, _ := logger.New("Info")
+	store := localStore.New()
+	svc := NewService(store, cfg, logger, store)
 
-	// Создаем тестовый обработчик, который просто возвращает 200 OK
-	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
+	middleware := svc.CheckContentType(handler)
 
 	tests := []struct {
 		name           string
@@ -21,55 +30,58 @@ func TestCheckContentType(t *testing.T) {
 		expectedStatus int
 	}{
 		{
-			name:           "Valid JSON content type",
+			name:           "Valid application/json",
 			contentType:    "application/json",
 			expectedStatus: http.StatusOK,
 		},
 		{
-			name:           "Empty content type",
-			contentType:    "",
-			expectedStatus: http.StatusUnsupportedMediaType,
-		},
-		{
-			name:           "Invalid content type",
-			contentType:    "text/plain",
-			expectedStatus: http.StatusUnsupportedMediaType,
-		},
-		{
-			name:           "Content type with charset",
+			name:           "Valid with charset",
 			contentType:    "application/json; charset=utf-8",
 			expectedStatus: http.StatusOK,
 		},
 		{
-			name:           "Content type with version",
-			contentType:    "application/json;version=1",
+			name:           "Valid with version",
+			contentType:    "application/json; version=1",
 			expectedStatus: http.StatusOK,
 		},
 		{
-			name:           "Content type with spaces",
-			contentType:    "application/json ; charset=utf-8",
+			name:           "Invalid text/plain",
+			contentType:    "text/plain",
+			expectedStatus: http.StatusUnsupportedMediaType,
+		},
+		{
+			name:           "Invalid multipart/form-data",
+			contentType:    "multipart/form-data",
+			expectedStatus: http.StatusUnsupportedMediaType,
+		},
+		{
+			name:           "Missing content type",
+			contentType:    "",
+			expectedStatus: http.StatusUnsupportedMediaType,
+		},
+		{
+			name:           "Invalid prefix",
+			contentType:    "application/xml",
+			expectedStatus: http.StatusUnsupportedMediaType,
+		},
+		{
+			name:           "Case insensitive",
+			contentType:    "APPLICATION/JSON",
 			expectedStatus: http.StatusOK,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Создаем запрос с указанным Content-Type
-			req := httptest.NewRequest("POST", "http://example.com", nil)
-			req.Header.Set("Content-Type", tt.contentType)
-
-			// Создаем ResponseRecorder для записи ответа
-			rr := httptest.NewRecorder()
-
-			// Вызываем middleware с тестовым обработчиком
-			handler := s.CheckContentType(nextHandler)
-			handler.ServeHTTP(rr, req)
-
-			// Проверяем код статуса
-			if status := rr.Code; status != tt.expectedStatus {
-				t.Errorf("handler returned wrong status code: got %v want %v",
-					status, tt.expectedStatus)
+			req := httptest.NewRequest("POST", "/update/", strings.NewReader("{}"))
+			if tt.contentType != "" {
+				req.Header.Set("Content-Type", tt.contentType)
 			}
+
+			rr := httptest.NewRecorder()
+			middleware.ServeHTTP(rr, req)
+
+			assert.Equal(t, tt.expectedStatus, rr.Code)
 		})
 	}
 }

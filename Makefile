@@ -150,3 +150,10 @@ test:: go_generate
 	go test ./...
 test_race::
 	go test -v -race ./...
+
+
+test_coverage::
+	go test -coverprofile=coverage.out ./...
+	grep -v "mock_" coverage.out > coverage_filtered.out
+	go tool cover -func=coverage_filtered.out
+	# go tool cover -html=coverage_filtered.out
