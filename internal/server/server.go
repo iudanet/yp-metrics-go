@@ -3,7 +3,6 @@ package server
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 	"text/template"
@@ -14,17 +13,13 @@ import (
 	"go.uber.org/zap"
 )
 
-const (
-	typeGauge   string = "gauge"
-	typeCounter string = "counter"
-)
-
-func NewService(storage storage.Repository, cfg *config.ServerConfig, logger *zap.Logger) *service {
+func NewService(storage storage.Repository, cfg *config.ServerConfig, logger *zap.Logger, pg storage.Repository) *service {
 	return &service{
 		storage: storage,
 		viewer:  storage,
 		config:  cfg,
 		logger:  logger,
+		checker: pg,
 	}
 }
 
@@ -33,6 +28,7 @@ type service struct {
 	viewer  storage.MetricReader
 	config  *config.ServerConfig
 	logger  *zap.Logger
+	checker storage.HealthcheckDB
 }
 type IndexData struct {
 	Counters map[string]int64
@@ -40,10 +36,6 @@ type IndexData struct {
 }
 
 func (s *service) UpdateMetricJSON(w http.ResponseWriter, req *http.Request) {
-	if req.Header.Get("Content-Type") != "application/json" {
-		http.Error(w, "invalid content type", http.StatusUnsupportedMediaType)
-		return
-	}
 	var metrics models.Metrics
 
 	err := json.NewDecoder(req.Body).Decode(&metrics)
@@ -53,23 +45,33 @@ func (s *service) UpdateMetricJSON(w http.ResponseWriter, req *http.Request) {
 	}
 
 	switch metrics.MType {
-	case typeCounter:
-		err := s.storage.SetCounter(metrics.ID, *metrics.Delta)
+	case models.TypeCounter:
+		err := s.storage.SetCounter(req.Context(), metrics.ID, *metrics.Delta)
 		if err != nil {
+			s.logger.Error("Ошибка при установке counter", zap.Error(err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		if s.config.Storage.StoreInterval == 0 {
-			s.storage.SaveDB(s.config.Storage.Path)
+			err := s.storage.SaveDB(req.Context(), s.config.Storage.Path)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
 		}
-	case typeGauge:
-		err = s.storage.SetGauge(metrics.ID, *metrics.Value)
+	case models.TypeGauge:
+		err := s.storage.SetGauge(req.Context(), metrics.ID, *metrics.Value)
 		if err != nil {
+			s.logger.Error("Ошибка при установке gauge", zap.Error(err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		if s.config.Storage.StoreInterval == 0 {
-			s.storage.SaveDB(s.config.Storage.Path)
+			err := s.storage.SaveDB(req.Context(), s.config.Storage.Path)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
 		}
 	default:
 		http.Error(w, "invalid metric type", http.StatusBadRequest)
@@ -84,35 +86,42 @@ func (s *service) UpdateMetric(w http.ResponseWriter, req *http.Request) {
 	typeMetrics := req.PathValue("typeMetrics")
 	name := req.PathValue("name")
 	rawValue := req.PathValue("value")
-	log.Printf("Received metric: type=%s name=%s value=%s", typeMetrics, name, rawValue)
 	switch typeMetrics {
-	case typeGauge:
+	case models.TypeGauge:
 		value, err := strconv.ParseFloat(rawValue, 64)
 		if err != nil {
 			http.Error(w, "invalid gauge value", http.StatusBadRequest)
 			return
 		}
-		err = s.storage.SetGauge(name, value)
+		err = s.storage.SetGauge(req.Context(), name, value)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		if s.config.Storage.StoreInterval == 0 {
-			s.storage.SaveDB(s.config.Storage.Path)
+			err := s.storage.SaveDB(req.Context(), s.config.Storage.Path)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
 		}
-	case typeCounter:
+	case models.TypeCounter:
 		value, err := strconv.ParseInt(rawValue, 10, 64)
 		if err != nil {
 			http.Error(w, "invalid counter value", http.StatusBadRequest)
 			return
 		}
-		err = s.storage.SetCounter(name, value)
+		err = s.storage.SetCounter(req.Context(), name, value)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		if s.config.Storage.StoreInterval == 0 {
-			s.storage.SaveDB(s.config.Storage.Path)
+			err := s.storage.SaveDB(req.Context(), s.config.Storage.Path)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
 		}
 	default:
 		http.Error(w, "invalid metric type", http.StatusBadRequest)
@@ -123,10 +132,6 @@ func (s *service) UpdateMetric(w http.ResponseWriter, req *http.Request) {
 }
 
 func (s *service) GetMetricJSON(w http.ResponseWriter, req *http.Request) {
-	if req.Header.Get("Content-Type") != "application/json" {
-		http.Error(w, "invalid content type", http.StatusBadRequest)
-		return
-	}
 	var metrics models.Metrics
 
 	err := json.NewDecoder(req.Body).Decode(&metrics)
@@ -136,8 +141,8 @@ func (s *service) GetMetricJSON(w http.ResponseWriter, req *http.Request) {
 	}
 	var resp models.Metrics
 	switch metrics.MType {
-	case typeGauge:
-		value, err := s.viewer.GetGauge(metrics.ID)
+	case models.TypeGauge:
+		value, err := s.viewer.GetGauge(req.Context(), metrics.ID)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
@@ -145,8 +150,8 @@ func (s *service) GetMetricJSON(w http.ResponseWriter, req *http.Request) {
 		resp.ID = metrics.ID
 		resp.MType = metrics.MType
 		resp.Value = &value
-	case typeCounter:
-		delta, err := s.viewer.GetCounter(metrics.ID)
+	case models.TypeCounter:
+		delta, err := s.viewer.GetCounter(req.Context(), metrics.ID)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
@@ -174,15 +179,15 @@ func (s *service) GetMetric(w http.ResponseWriter, req *http.Request) {
 	name := req.PathValue("name")
 
 	switch typeMetrics {
-	case typeGauge:
-		value, err := s.viewer.GetGauge(name)
+	case models.TypeGauge:
+		value, err := s.viewer.GetGauge(req.Context(), name)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
 		}
 		fmt.Fprint(w, strconv.FormatFloat(value, 'f', -1, 64))
-	case typeCounter:
-		value, err := s.viewer.GetCounter(name)
+	case models.TypeCounter:
+		value, err := s.viewer.GetCounter(req.Context(), name)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
@@ -194,17 +199,17 @@ func (s *service) GetMetric(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (s *service) GetIndex(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" {
+func (s *service) GetIndex(w http.ResponseWriter, req *http.Request) {
+	if req.URL.Path != "/" {
 		http.Error(w, "invalid metric type", http.StatusBadRequest)
 		return
 	}
-	counters, err := s.viewer.GetMapCounter()
+	counters, err := s.viewer.GetMapCounter(req.Context())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	gauges, err := s.viewer.GetMapGauge()
+	gauges, err := s.viewer.GetMapGauge(req.Context())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -221,4 +226,50 @@ func (s *service) GetIndex(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 	w.WriteHeader(http.StatusOK)
+}
+
+// функция для логики /ping проверющая подклчюение к базе данных.
+func (s *service) Ping(w http.ResponseWriter, r *http.Request) {
+	err := s.checker.Ping(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusServiceUnavailable)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func (s *service) UpdateMetricsBatch(w http.ResponseWriter, req *http.Request) {
+	var metrics []models.Metrics
+	if err := json.NewDecoder(req.Body).Decode(&metrics); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if len(metrics) == 0 {
+		http.Error(w, "empty batch", http.StatusBadRequest)
+		return
+	}
+
+	ctx := req.Context()
+	if err := s.storage.WriteBatch(ctx, metrics); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Синхронное сохранение если нужно
+	if s.config.Storage.StoreInterval == 0 {
+		err := s.storage.SaveDB(ctx, s.config.Storage.Path)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	err := json.NewEncoder(w).Encode(metrics)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }

@@ -4,6 +4,7 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -11,8 +12,9 @@ import (
 	"time"
 
 	"github.com/iudanet/yp-metrics-go/internal/config"
+	"github.com/iudanet/yp-metrics-go/internal/logger"
 	"github.com/iudanet/yp-metrics-go/internal/models"
-	"github.com/iudanet/yp-metrics-go/internal/storage"
+	localStore "github.com/iudanet/yp-metrics-go/internal/storage/local"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -91,13 +93,13 @@ func TestAgent(t *testing.T) {
 		{
 			name: "test_metrics_collection",
 			fn: func(t *testing.T, a *Agent) {
-				a.GetMetrics()
+				a.GetMetrics(t.Context())
 
-				gauges, err := a.reader.GetMapGauge()
+				gauges, err := a.reader.GetMapGauge(t.Context())
 				require.NoError(t, err)
 				assert.NotEmpty(t, gauges)
 
-				counters, err := a.reader.GetMapCounter()
+				counters, err := a.reader.GetMapCounter(t.Context())
 				require.NoError(t, err)
 				assert.Equal(t, int64(1), counters["PollCount"])
 			},
@@ -166,8 +168,12 @@ func TestAgent(t *testing.T) {
 			}
 			serverHost := server.URL[7:]
 			cfg.MetricServerHost = serverHost // Удаляем "http://" из адреса
-			store := storage.NewStorage()
-			agent := NewAgent(cfg, store)
+			newLogger, err := logger.New("Info")
+			if err != nil {
+				log.Fatal(err)
+			}
+			store := localStore.New()
+			agent := NewAgent(cfg, store, newLogger)
 
 			tt.fn(t, agent)
 		})

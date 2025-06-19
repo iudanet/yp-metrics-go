@@ -1,0 +1,18 @@
+package server
+
+import (
+	"net/http"
+	"strings"
+)
+
+// Middleware для проверки Content-Type
+func (s *service) CheckContentType(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		contentType := r.Header.Get("Content-Type")
+		if !strings.HasPrefix(contentType, "application/json") {
+			http.Error(w, "invalid content type", http.StatusUnsupportedMediaType)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}

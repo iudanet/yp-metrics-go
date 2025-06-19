@@ -13,7 +13,8 @@ import (
 	"github.com/iudanet/yp-metrics-go/internal/config"
 	"github.com/iudanet/yp-metrics-go/internal/logger"
 	"github.com/iudanet/yp-metrics-go/internal/server"
-	"github.com/iudanet/yp-metrics-go/internal/storage"
+	localStore "github.com/iudanet/yp-metrics-go/internal/storage/local"
+	pgStore "github.com/iudanet/yp-metrics-go/internal/storage/pg"
 	"go.uber.org/zap"
 )
 
@@ -30,36 +31,46 @@ func main() {
 	}
 
 	// делаем регистратор SugaredLogger
-	storage := storage.NewStorage()
+	st := localStore.New()
 	cfg := config.ParseServerFlags()
-
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	// восстановление базы из файла
 	if cfg.Storage.Restore {
-		err := storage.LoadDB(cfg.Storage.Path)
+		err := st.LoadDB(ctx, cfg.Storage.Path)
 		if err != nil {
 			newLogger.Error("Failed to restore metrics", zap.Error(err))
 		} else {
 			newLogger.Info("Successfully restored metrics from disk")
 		}
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	// Start the worker if store interval is greater than 0
 	if cfg.Storage.StoreInterval > 0 {
-		storage.StartWorker(ctx, cfg.Storage, newLogger)
+		st.StartWorker(ctx, cfg.Storage, newLogger)
 		newLogger.Info("Started metrics persistence worker",
 			zap.Int("interval_seconds", cfg.Storage.StoreInterval))
 	}
+	svc := server.NewService(st, cfg, newLogger, st)
+	if cfg.Storage.DatabaseDSN != "" {
+		pg, err := pgStore.New(ctx, cfg.Storage.DatabaseDSN)
+		if err != nil {
+			newLogger.Error("Failed to connect to database", zap.Error(err))
+			return
+		}
+		svc = server.NewService(pg, cfg, newLogger, pg)
+	}
 
-	svc := server.NewService(storage, cfg, newLogger)
 	// chi отключен для проходждения тестов. хотел сделать с нативным новым роутером.
 	_ = chi.NewRouter()
 	m := http.NewServeMux()
+	m.Handle(`POST /update/{$}`, svc.CheckContentType(http.HandlerFunc(svc.UpdateMetricJSON)))
+	m.Handle(`POST /updates/{$}`, svc.CheckContentType(http.HandlerFunc(svc.UpdateMetricsBatch)))
+	m.Handle(`POST /value/{$}`, svc.CheckContentType(http.HandlerFunc(svc.GetMetricJSON)))
+
 	m.HandleFunc(`POST /update/{typeMetrics}/{name}/{value}`, svc.UpdateMetric)
-	m.HandleFunc(`POST /update/{$}`, svc.UpdateMetricJSON)
 	m.HandleFunc(`GET /value/{typeMetrics}/{name}`, svc.GetMetric)
-	m.HandleFunc(`POST /value/{$}`, svc.GetMetricJSON)
+	m.HandleFunc(`GET /ping`, svc.Ping)
 	m.HandleFunc(`GET /{$}`, svc.GetIndex)
 
 	srv := &http.Server{
@@ -80,7 +91,7 @@ func main() {
 	newLogger.Info("Received signal", zap.String("signal", sig.String()))
 	cancel()
 	// ждем пока сохранится база при отключении
-	storage.WaitWorker()
+	st.WaitWorker()
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer shutdownCancel()
