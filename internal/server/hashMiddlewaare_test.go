@@ -37,31 +37,31 @@ func TestVerifyHashMiddleware(t *testing.T) {
 		expectedStatus int
 	}{
 		{
-			name:           "Valid hash",
+			name:           "Valid_hash",
 			hashHeader:     validHash,
 			requestBody:    testBody,
 			expectedStatus: http.StatusOK,
 		},
 		{
-			name:           "Invalid hash",
+			name:           "Invalid_hash",
 			hashHeader:     "invalid-hash",
 			requestBody:    testBody,
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
-			name:           "Missing header",
+			name:           "Missing_header",
 			hashHeader:     "",
 			requestBody:    testBody,
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
-			name:           "Different body",
+			name:           "Different_body",
 			hashHeader:     validHash,
 			requestBody:    `{"id":"different","type":"counter","delta":5}`,
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
-			name:           "Empty body",
+			name:           "Empty_body",
 			hashHeader:     utils.CalculateHash([]byte(""), "test-key"),
 			requestBody:    "",
 			expectedStatus: http.StatusOK,

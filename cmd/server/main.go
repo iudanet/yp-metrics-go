@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/iudanet/yp-metrics-go/internal/config"
 	"github.com/iudanet/yp-metrics-go/internal/logger"
 	"github.com/iudanet/yp-metrics-go/internal/server"
+	"github.com/iudanet/yp-metrics-go/internal/storage"
 	localStore "github.com/iudanet/yp-metrics-go/internal/storage/local"
 	pgStore "github.com/iudanet/yp-metrics-go/internal/storage/pg"
 	"go.uber.org/zap"
@@ -31,35 +33,42 @@ func main() {
 	}
 
 	// делаем регистратор SugaredLogger
-	st := localStore.New()
+
 	cfg := config.ParseServerFlags()
 	ctx, cancel := context.WithCancel(context.Background())
+	memWg := sync.WaitGroup{}
 	defer cancel()
-	// восстановление базы из файла
-	if cfg.Storage.Restore {
-		err := st.LoadDB(ctx, cfg.Storage.Path)
-		if err != nil {
-			newLogger.Error("Failed to restore metrics", zap.Error(err))
-		} else {
-			newLogger.Info("Successfully restored metrics from disk")
-		}
-	}
-
-	// Start the worker if store interval is greater than 0
-	if cfg.Storage.StoreInterval > 0 {
-		st.StartWorker(ctx, cfg.Storage, newLogger)
-		newLogger.Info("Started metrics persistence worker",
-			zap.Int("interval_seconds", cfg.Storage.StoreInterval))
-	}
-	svc := server.NewService(st, cfg, newLogger, st)
+	var repo storage.Repository
 	if cfg.Storage.DatabaseDSN != "" {
-		pg, err := pgStore.New(ctx, cfg.Storage.DatabaseDSN)
+		repo, err = pgStore.New(ctx, cfg.Storage.DatabaseDSN)
 		if err != nil {
 			newLogger.Error("Failed to connect to database", zap.Error(err))
 			return
 		}
-		svc = server.NewService(pg, cfg, newLogger, pg)
+
+	} else {
+		// если нет перменной для подключения к postgres используется локальное хранение
+		st := localStore.New()
+
+		if cfg.Storage.Restore {
+			err := st.LoadDB(ctx, cfg.Storage.Path)
+			if err != nil {
+				newLogger.Error("Failed to restore metrics", zap.Error(err))
+			} else {
+				newLogger.Info("Successfully restored metrics from disk")
+			}
+		}
+		if cfg.Storage.StoreInterval > 0 {
+			memWg.Add(1)
+			st.StartWorker(ctx, cfg.Storage, newLogger, &memWg)
+
+			newLogger.Info("Started metrics persistence worker",
+				zap.Int("interval_seconds", cfg.Storage.StoreInterval))
+		}
+		repo = st
+
 	}
+	svc := server.NewService(repo, cfg, newLogger, repo)
 
 	// chi отключен для проходждения тестов. хотел сделать с нативным новым роутером.
 	_ = chi.NewRouter()
@@ -91,7 +100,9 @@ func main() {
 	newLogger.Info("Received signal", zap.String("signal", sig.String()))
 	cancel()
 	// ждем пока сохранится база при отключении
-	st.WaitWorker()
+	if cfg.Storage.DatabaseDSN == "" {
+		memWg.Wait()
+	}
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer shutdownCancel()

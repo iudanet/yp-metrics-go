@@ -48,7 +48,7 @@ func TestWithLogging(t *testing.T) {
 		expectLogs bool
 	}{
 		{
-			name:       "Successful request",
+			name:       "Successful_request",
 			method:     "GET",
 			path:       "/test",
 			status:     http.StatusOK,
@@ -56,7 +56,7 @@ func TestWithLogging(t *testing.T) {
 			expectLogs: true,
 		},
 		{
-			name:       "Not found",
+			name:       "Not_found",
 			method:     "GET",
 			path:       "/not-found",
 			status:     http.StatusNotFound,

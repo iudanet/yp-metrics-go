@@ -44,7 +44,7 @@ func TestWithRetry(t *testing.T) {
 			wantError: true,
 		},
 		{
-			name: "All attempts fail",
+			name: "All_attempts_fail",
 			op: func() error {
 				return &pgconn.PgError{Code: pgerrcode.ConnectionException}
 			},

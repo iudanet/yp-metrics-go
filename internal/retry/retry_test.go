@@ -81,12 +81,12 @@ func TestIsRetriableError(t *testing.T) {
 			expected: true,
 		},
 		{
-			name:     "retried SQL client unable to establish connection",
+			name:     "retried_SQL_client_unable_to_establish_connection",
 			err:      &pgconn.PgError{Code: pgerrcode.SQLClientUnableToEstablishSQLConnection},
 			expected: true,
 		},
 		{
-			name:     "invalid connection error",
+			name:     "invalid_connection_error",
 			err:      errors.New("invalid connection"),
 			expected: false,
 		},

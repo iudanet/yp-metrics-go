@@ -30,42 +30,42 @@ func TestCheckContentType(t *testing.T) {
 		expectedStatus int
 	}{
 		{
-			name:           "Valid application/json",
+			name:           "Valid_application/json",
 			contentType:    "application/json",
 			expectedStatus: http.StatusOK,
 		},
 		{
-			name:           "Valid with charset",
+			name:           "Valid_with_charset",
 			contentType:    "application/json; charset=utf-8",
 			expectedStatus: http.StatusOK,
 		},
 		{
-			name:           "Valid with version",
+			name:           "Valid_with_version",
 			contentType:    "application/json; version=1",
 			expectedStatus: http.StatusOK,
 		},
 		{
-			name:           "Invalid text/plain",
+			name:           "Invalid_text/plain",
 			contentType:    "text/plain",
 			expectedStatus: http.StatusUnsupportedMediaType,
 		},
 		{
-			name:           "Invalid multipart/form-data",
+			name:           "Invalid_multipart/form-data",
 			contentType:    "multipart/form-data",
 			expectedStatus: http.StatusUnsupportedMediaType,
 		},
 		{
-			name:           "Missing content type",
+			name:           "Missing_content_type",
 			contentType:    "",
 			expectedStatus: http.StatusUnsupportedMediaType,
 		},
 		{
-			name:           "Invalid prefix",
+			name:           "Invalid_prefix",
 			contentType:    "application/xml",
 			expectedStatus: http.StatusUnsupportedMediaType,
 		},
 		{
-			name:           "Case insensitive",
+			name:           "Case_insensitive",
 			contentType:    "APPLICATION/JSON",
 			expectedStatus: http.StatusOK,
 		},

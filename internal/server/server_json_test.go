@@ -23,7 +23,7 @@ func TestUpdateMetricJSON(t *testing.T) {
 		expectError bool
 	}{
 		{
-			name: "Valid gauge",
+			name: "Valid_gauge",
 			metric: models.Metrics{
 				ID:    "testGauge",
 				MType: "gauge",
@@ -31,7 +31,7 @@ func TestUpdateMetricJSON(t *testing.T) {
 			},
 		},
 		{
-			name: "Valid counter",
+			name: "Valid_counter",
 			metric: models.Metrics{
 				ID:    "testCounter",
 				MType: "counter",
@@ -39,7 +39,7 @@ func TestUpdateMetricJSON(t *testing.T) {
 			},
 		},
 		{
-			name: "Invalid type",
+			name: "Invalid_type",
 			metric: models.Metrics{
 				ID:    "invalid",
 				MType: "invalid",
@@ -89,23 +89,23 @@ func TestGetMetricJSON(t *testing.T) {
 		expectError bool
 	}{
 		{
-			name:       "Existing gauge",
+			name:       "Existing_gauge",
 			metricType: "gauge",
 			metricName: "testGauge",
 		},
 		{
-			name:       "Existing counter",
+			name:       "Existing_counter",
 			metricType: "counter",
 			metricName: "testCounter",
 		},
 		{
-			name:        "Non-existent metric",
+			name:        "Non-existent_metric",
 			metricType:  "gauge",
 			metricName:  "unknown",
 			expectError: true,
 		},
 		{
-			name:        "Invalid type",
+			name:        "Invalid_type",
 			metricType:  "invalid",
 			metricName:  "test",
 			expectError: true,

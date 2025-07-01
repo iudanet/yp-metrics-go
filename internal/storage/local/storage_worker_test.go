@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -31,7 +32,9 @@ func TestWorker(t *testing.T) {
 	}
 
 	// Запускаем воркер
-	store.StartWorker(ctx, cfg, logger)
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	store.StartWorker(ctx, cfg, logger, wg)
 
 	// Добавляем тестовые данные
 	store.SetGauge(ctx, "testGauge", 10.5)
@@ -47,7 +50,7 @@ func TestWorker(t *testing.T) {
 
 	// Останавливаем воркер
 	cancel()
-	store.WaitWorker()
+	wg.Wait()
 
 	// Проверяем, что данные сохранились
 	newStore := New()

@@ -52,31 +52,31 @@ func TestCalculateHash(t *testing.T) {
 		expected string
 	}{
 		{
-			name:     "Empty data and key",
+			name:     "Empty_data_and_key",
 			data:     []byte(""),
 			key:      "",
 			expected: "",
 		},
 		{
-			name:     "Empty data with key",
+			name:     "Empty_data_with_key",
 			data:     []byte(""),
 			key:      "secret",
 			expected: hex.EncodeToString(hmac.New(sha256.New, []byte("secret")).Sum(nil)),
 		},
 		{
-			name:     "Simple data",
+			name:     "Simple_data",
 			data:     []byte("test"),
 			key:      "secret",
 			expected: "0329a06b62cd16b33eb6792be8c60b158d89a2ee3a876fce9a881ebb488c0914",
 		},
 		{
-			name:     "Different keys same data",
+			name:     "Different_keys_same_data",
 			data:     []byte("test"),
 			key:      "secret1",
 			expected: "e025df0a6771f7b2082ce6f92de78702f49235f3453821b6b710eadb831d1249",
 		},
 		{
-			name:     "Special characters",
+			name:     "Special_characters",
 			data:     []byte("!@#$%^&*()_+"),
 			key:      "key!@#",
 			expected: "5d1f1213ff5903f041d39d0ee155bbc23c2bdf972a7a8de138a0d771f1a03187",

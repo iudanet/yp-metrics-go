@@ -18,7 +18,7 @@ func TestAgentWorkers(t *testing.T) {
 		testFunc func(t *testing.T, a *Agent)
 	}{
 		{
-			name: "PollWorker basic functionality",
+			name: "PollWorker_basic_functionality",
 			testFunc: func(t *testing.T, a *Agent) {
 				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 				defer cancel()
@@ -33,7 +33,7 @@ func TestAgentWorkers(t *testing.T) {
 			},
 		},
 		{
-			name: "ReportWorkerBatch basic functionality",
+			name: "ReportWorkerBatch_basic_functionality",
 			testFunc: func(t *testing.T, a *Agent) {
 				ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 				defer cancel()
@@ -46,7 +46,7 @@ func TestAgentWorkers(t *testing.T) {
 			},
 		},
 		{
-			name: "StartWorkers and worker",
+			name: "StartWorkers_and_worker",
 			testFunc: func(t *testing.T, a *Agent) {
 				ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 				defer cancel()

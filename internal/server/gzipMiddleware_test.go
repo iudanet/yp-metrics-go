@@ -47,28 +47,28 @@ func TestGzipMiddleware(t *testing.T) {
 		expectCompressed bool
 	}{
 		{
-			name:             "Client supports gzip",
+			name:             "Client_supports_gzip",
 			acceptEncoding:   "gzip",
 			requestBody:      testBody,
 			expectedEncoding: "gzip",
 			expectCompressed: true,
 		},
 		{
-			name:             "Client supports multiple encodings",
+			name:             "Client_supports_multiple_encodings",
 			acceptEncoding:   "deflate, gzip, br",
 			requestBody:      testBody,
 			expectedEncoding: "gzip",
 			expectCompressed: true,
 		},
 		{
-			name:             "Client does not support compression",
+			name:             "Client_does_not_support_compression",
 			acceptEncoding:   "",
 			requestBody:      testBody,
 			expectedEncoding: "",
 			expectCompressed: false,
 		},
 		{
-			name:             "Compressed request",
+			name:             "Compressed_request",
 			contentEncoding:  "gzip",
 			requestBody:      testBody,
 			compressRequest:  true,
@@ -77,7 +77,7 @@ func TestGzipMiddleware(t *testing.T) {
 			expectCompressed: true,
 		},
 		{
-			name:             "Uncompressed request",
+			name:             "Uncompressed_request",
 			contentEncoding:  "",
 			requestBody:      testBody,
 			compressRequest:  false,
