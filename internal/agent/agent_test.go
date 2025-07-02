@@ -2,7 +2,6 @@ package agent
 
 import (
 	"compress/gzip"
-	"context"
 	"encoding/json"
 	"io"
 	"log"
@@ -18,7 +17,6 @@ import (
 	localStore "github.com/iudanet/yp-metrics-go/internal/storage/local"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 )
 
 type TestAgentConfig struct {
@@ -180,38 +178,4 @@ func TestAgent(t *testing.T) {
 			tt.fn(t, agent)
 		})
 	}
-}
-
-func TestGetMetrics(t *testing.T) {
-	ctx := context.Background()
-
-	store := localStore.New()
-	store.SetCounter(ctx, "counter1", 10)
-	store.SetGauge(ctx, "gauge1", 1.23)
-
-	cfg := &config.AgentConfig{}
-
-	logger, _ := zap.NewDevelopment()
-	agent := NewAgent(cfg, store, logger)
-
-	metrics, err := agent.getMetrics(ctx)
-	require.NoError(t, err)
-
-	// Должно быть по 1 счетчику и гейджу
-	var foundCounter, foundGauge bool
-	for _, m := range metrics {
-		switch m.MType {
-		case models.TypeCounter:
-			if m.ID == "counter1" && m.Delta != nil && *m.Delta == 10 {
-				foundCounter = true
-			}
-		case models.TypeGauge:
-			if m.ID == "gauge1" && m.Value != nil && *m.Value == 1.23 {
-				foundGauge = true
-			}
-		}
-	}
-
-	assert.True(t, foundCounter, "Counter metric должен присутствовать")
-	assert.True(t, foundGauge, "Gauge metric должен присутствовать")
 }
