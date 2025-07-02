@@ -430,36 +430,25 @@ func (a *Agent) sendRequest(req *http.Request) error {
 	return nil
 }
 
-func (a *Agent) StartWorkers(ctx context.Context) {
-	if a.config.RateLimit <= 0 {
-		a.config.RateLimit = 1
-	}
+func (a *Agent) StartWorkers(ctx context.Context, wg *sync.WaitGroup) {
 	for i := 0; i < a.config.RateLimit; i++ {
-		a.workerWg.Add(1)
-		go a.worker(ctx)
+		wg.Add(1)
+		go a.worker(ctx, wg)
 	}
 }
 
-func (a *Agent) worker(ctx context.Context) {
-	defer a.workerWg.Done()
+func (a *Agent) worker(ctx context.Context, wg *sync.WaitGroup) {
+	defer wg.Done()
 
-	for {
-		select {
-		case <-ctx.Done():
-			a.logger.Info("Worker stopped")
-			return
-		case metrics, ok := <-a.metricsCh:
-			if !ok {
-				return
-			}
-			if len(metrics) > 0 {
-				err := a.PushMetricsBatch(metrics)
-				if err != nil {
-					a.logger.Error("Failed to push metrics batch", zap.Error(err))
-				}
+	for metrics := range a.metricsCh {
+		if len(metrics) > 0 {
+			err := a.PushMetricsBatch(metrics)
+			if err != nil {
+				a.logger.Error("Failed to push metrics batch", zap.Error(err))
 			}
 		}
 	}
+
 }
 
 // compressData compresses data using gzip

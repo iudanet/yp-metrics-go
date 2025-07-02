@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -50,8 +51,9 @@ func TestAgentWorkers(t *testing.T) {
 			testFunc: func(t *testing.T, a *Agent) {
 				ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 				defer cancel()
-
-				a.StartWorkers(ctx)
+				wg := &sync.WaitGroup{}
+				wg.Add(1)
+				a.StartWorkers(ctx, wg)
 				time.Sleep(100 * time.Millisecond)
 
 				// Добавляем метрики в канал

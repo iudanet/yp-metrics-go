@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"flag"
 	"log"
 	"os"
@@ -71,7 +72,11 @@ func ParseAgentFlags() (*AgentConfig, error) {
 			log.Println("Ошибка env RATE_LIMIT:", err)
 			return nil, err
 		}
+
 		cfg.RateLimit = rl
+	}
+	if cfg.RateLimit <= 0 {
+		return nil, errors.New("rate limit must be greater than 0")
 	}
 	return cfg, nil
 }

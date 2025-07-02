@@ -39,7 +39,7 @@ func main() {
 		defer wg.Done()
 		a.PollWorker(ctxStop)
 	}()
-	go a.StartWorkers(ctxStop)
+	go a.StartWorkers(ctxStop, &wg)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
