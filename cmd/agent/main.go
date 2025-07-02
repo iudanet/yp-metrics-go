@@ -16,9 +16,7 @@ import (
 )
 
 func main() {
-	ctxCancel, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	ctxStop, stop := signal.NotifyContext(ctxCancel, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	ctxStop, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	defer stop()
 	newLogger, err := logger.New("Info")
 	if err != nil {
@@ -46,12 +44,9 @@ func main() {
 		a.ReportWorkerBatch(ctxStop)
 	}()
 
-	select {
-	case <-ctxStop.Done():
-		newLogger.Info("Agent stopped")
-	case <-ctxCancel.Done():
-		newLogger.Info("Agent canceled")
-	}
+	<-ctxStop.Done()
+	newLogger.Info("Agent stopped")
+
 	// Wait for all goroutines to finish
 	wg.Wait()
 	newLogger.Info("All workers have finished")
