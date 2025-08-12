@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"net/http/pprof"
 	"os"
 	"os/signal"
 	"sync"
@@ -23,9 +24,6 @@ import (
 var sugar zap.SugaredLogger
 
 func main() {
-
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
 	newLogger, err := logger.New("Info")
 	if err != nil {
@@ -82,6 +80,13 @@ func main() {
 	m.HandleFunc(`GET /ping`, svc.Ping)
 	m.HandleFunc(`GET /{$}`, svc.GetIndex)
 
+	// Add pprof routes
+	m.HandleFunc("/debug/pprof/", pprof.Index)
+	m.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	m.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	m.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	m.HandleFunc("/debug/pprof/trace", pprof.Trace)
+
 	srv := &http.Server{
 		Addr:    cfg.MetricServerHost,
 		Handler: svc.GzipMiddleware(svc.WithLogging(m)),
@@ -96,6 +101,9 @@ func main() {
 		}
 	}()
 
+	// Graceful shutdown
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	sig := <-sigCh
 	newLogger.Info("Received signal", zap.String("signal", sig.String()))
 	cancel()

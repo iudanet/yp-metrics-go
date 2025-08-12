@@ -35,7 +35,7 @@ func TestParseAgentFlags(t *testing.T) {
 		expectedError bool
 	}{
 		{
-			name: "default_values",
+			name: "defaultValues",
 			args: []string{programName},
 			expected: &AgentConfig{
 				PollInterval:     2,
