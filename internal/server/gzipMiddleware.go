@@ -139,7 +139,7 @@ func (c *compressReader) Close() error {
 }
 
 // GzipMiddleware wraps an http.Handler with gzip compression and decompression
-func (s *service) GzipMiddleware(h http.Handler) http.Handler {
+func (s *Service) GzipMiddleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Check if client accepts gzip encoding
 		acceptEncoding := r.Header.Get("Accept-Encoding")

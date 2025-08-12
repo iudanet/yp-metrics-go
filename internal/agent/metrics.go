@@ -130,6 +130,7 @@ func (a *Agent) collectPSUtilMetrics(ctx context.Context) error {
 	return nil
 }
 
+// GetMetrics собирает метрики с системы
 func (a *Agent) getMetrics(ctx context.Context) ([]models.Metrics, error) {
 	var metrics []models.Metrics
 

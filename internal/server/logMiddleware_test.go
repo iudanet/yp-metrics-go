@@ -21,7 +21,7 @@ func TestWithLogging(t *testing.T) {
 	// Setup service
 	cfg := config.NewServerConfig()
 	store := localStore.New()
-	svc := &service{
+	svc := &Service{
 		storage: store,
 		viewer:  store,
 		config:  cfg,
@@ -103,7 +103,7 @@ func TestWithLogging_Panics(t *testing.T) {
 	// Setup service
 	cfg := config.NewServerConfig()
 	store := localStore.New()
-	svc := &service{
+	svc := &Service{
 		storage: store,
 		viewer:  store,
 		config:  cfg,

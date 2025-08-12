@@ -12,6 +12,7 @@ import (
 	"github.com/iudanet/yp-metrics-go/internal/utils"
 )
 
+// PushCounter отправляет значение counter на сервер
 func (a *Agent) PushCounter(name string, value int64) error {
 	metric := models.Metrics{
 		ID:    name,

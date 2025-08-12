@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func (s *service) VerifyHash(next http.Handler) http.Handler {
+func (s *Service) VerifyHash(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if s.config.SginKey == "" {
 			next.ServeHTTP(w, r)
