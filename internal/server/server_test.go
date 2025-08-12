@@ -161,7 +161,7 @@ func TestUpdateMetricsBatch(t *testing.T) {
 		wantError  bool
 	}{
 		{
-			name: "valid batch",
+			name: "valid_batch",
 			metrics: []models.Metrics{
 				{ID: "test1", MType: "gauge", Value: ptrFloat64(10.5)},
 				{ID: "test2", MType: "counter", Delta: ptrInt64(5)},
@@ -170,13 +170,13 @@ func TestUpdateMetricsBatch(t *testing.T) {
 			wantError:  false,
 		},
 		{
-			name:       "empty batch",
+			name:       "empty_batch",
 			metrics:    []models.Metrics{},
 			wantStatus: http.StatusBadRequest,
 			wantError:  true,
 		},
 		{
-			name: "invalid metric type",
+			name: "invalid_metric_type",
 			metrics: []models.Metrics{
 				{ID: "test1", MType: "invalid", Value: ptrFloat64(10.5)},
 			},
@@ -238,12 +238,12 @@ func TestPingHandler(t *testing.T) {
 		wantStatus int
 	}{
 		{
-			name:       "db online",
+			name:       "db_online",
 			dbOnline:   true,
 			wantStatus: http.StatusOK,
 		},
 		{
-			name:       "db offline",
+			name:       "db_offline",
 			dbOnline:   false,
 			wantStatus: http.StatusServiceUnavailable,
 		},

@@ -37,7 +37,6 @@ type memStorage struct {
 	gauge   map[string]float64
 	counter map[string]int64
 	mutex   sync.RWMutex
-	wg      sync.WaitGroup
 }
 
 func New() *memStorage {
@@ -148,17 +147,12 @@ func (m *memStorage) LoadDB(ctx context.Context, filename string) error {
 	return nil
 }
 
-func (m *memStorage) WaitWorker() {
-	m.wg.Wait()
-}
-
-func (m *memStorage) StartWorker(ctx context.Context, cfg config.Storage, logger *zap.Logger) {
+func (m *memStorage) StartWorker(ctx context.Context, cfg config.Storage, logger *zap.Logger, wg *sync.WaitGroup) {
 	// Используем StoreInterval из конфигурации
 	interval := time.Duration(cfg.StoreInterval) * time.Second
 	ticker := time.NewTicker(interval)
-	m.wg.Add(1)
 	go func() {
-		defer m.wg.Done()
+		defer wg.Done()
 		defer ticker.Stop()
 		for {
 			select {
