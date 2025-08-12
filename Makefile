@@ -151,6 +151,11 @@ test:: go_generate
 test_race::
 	go test -v -race ./...
 
+fmt::
+	gofmt -w .
+	goimports -w .
+
+
 
 test_coverage::
 	go test -coverprofile=coverage.out ./...
