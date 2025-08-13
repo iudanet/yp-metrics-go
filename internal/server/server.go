@@ -13,8 +13,8 @@ import (
 	"go.uber.org/zap"
 )
 
-func NewService(storage storage.Repository, cfg *config.ServerConfig, logger *zap.Logger, pg storage.Repository) *service {
-	return &service{
+func NewService(storage storage.Repository, cfg *config.ServerConfig, logger *zap.Logger, pg storage.Repository) *Service {
+	return &Service{
 		storage: storage,
 		viewer:  storage,
 		config:  cfg,
@@ -23,7 +23,7 @@ func NewService(storage storage.Repository, cfg *config.ServerConfig, logger *za
 	}
 }
 
-type service struct {
+type Service struct {
 	storage storage.MetricWriter
 	viewer  storage.MetricReader
 	config  *config.ServerConfig
@@ -35,7 +35,7 @@ type IndexData struct {
 	Gauges   map[string]float64
 }
 
-func (s *service) UpdateMetricJSON(w http.ResponseWriter, req *http.Request) {
+func (s *Service) UpdateMetricJSON(w http.ResponseWriter, req *http.Request) {
 	var metrics models.Metrics
 
 	err := json.NewDecoder(req.Body).Decode(&metrics)
@@ -82,7 +82,7 @@ func (s *service) UpdateMetricJSON(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (s *service) UpdateMetric(w http.ResponseWriter, req *http.Request) {
+func (s *Service) UpdateMetric(w http.ResponseWriter, req *http.Request) {
 	typeMetrics := req.PathValue("typeMetrics")
 	name := req.PathValue("name")
 	rawValue := req.PathValue("value")
@@ -131,7 +131,7 @@ func (s *service) UpdateMetric(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (s *service) GetMetricJSON(w http.ResponseWriter, req *http.Request) {
+func (s *Service) GetMetricJSON(w http.ResponseWriter, req *http.Request) {
 	var metrics models.Metrics
 
 	err := json.NewDecoder(req.Body).Decode(&metrics)
@@ -174,7 +174,7 @@ func (s *service) GetMetricJSON(w http.ResponseWriter, req *http.Request) {
 
 }
 
-func (s *service) GetMetric(w http.ResponseWriter, req *http.Request) {
+func (s *Service) GetMetric(w http.ResponseWriter, req *http.Request) {
 	typeMetrics := req.PathValue("typeMetrics")
 	name := req.PathValue("name")
 
@@ -199,7 +199,7 @@ func (s *service) GetMetric(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (s *service) GetIndex(w http.ResponseWriter, req *http.Request) {
+func (s *Service) GetIndex(w http.ResponseWriter, req *http.Request) {
 	if req.URL.Path != "/" {
 		http.Error(w, "invalid metric type", http.StatusBadRequest)
 		return
@@ -229,7 +229,7 @@ func (s *service) GetIndex(w http.ResponseWriter, req *http.Request) {
 }
 
 // функция для логики /ping проверющая подклчюение к базе данных.
-func (s *service) Ping(w http.ResponseWriter, r *http.Request) {
+func (s *Service) Ping(w http.ResponseWriter, r *http.Request) {
 	err := s.checker.Ping(r.Context())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusServiceUnavailable)
@@ -238,7 +238,7 @@ func (s *service) Ping(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (s *service) UpdateMetricsBatch(w http.ResponseWriter, req *http.Request) {
+func (s *Service) UpdateMetricsBatch(w http.ResponseWriter, req *http.Request) {
 	var metrics []models.Metrics
 	if err := json.NewDecoder(req.Body).Decode(&metrics); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)

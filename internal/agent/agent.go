@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// Agent представляет агент для сбора и отправки метрик
 type Agent struct {
 	memstats  *runtime.MemStats
 	config    *config.AgentConfig
@@ -25,6 +26,7 @@ type Agent struct {
 	workerWg  sync.WaitGroup
 }
 
+// NewAgent создает новый экземпляр Agent
 func NewAgent(cfg *config.AgentConfig, storage storage.Repository, logger *zap.Logger) *Agent {
 	agent := &Agent{
 		memstats:  &runtime.MemStats{},
@@ -40,6 +42,7 @@ func NewAgent(cfg *config.AgentConfig, storage storage.Repository, logger *zap.L
 	return agent
 }
 
+// GetMetrics собирает метрики с системы
 func (a *Agent) GetMetrics(ctx context.Context) error {
 	// увеличиваем каждую иттерацию
 	err := a.counter.IncrCounter(ctx, "PollCount")

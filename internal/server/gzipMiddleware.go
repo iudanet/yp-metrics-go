@@ -5,6 +5,21 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
+)
+
+var (
+	gzipWriterPool = sync.Pool{
+		New: func() interface{} {
+			return gzip.NewWriter(io.Discard)
+		},
+	}
+
+	gzipReaderPool = sync.Pool{
+		New: func() interface{} {
+			return new(gzip.Reader)
+		},
+	}
 )
 
 // CompressibleContentTypes maps MIME types that should be compressed
@@ -23,9 +38,12 @@ type compressWriter struct {
 }
 
 func newCompressWriter(w http.ResponseWriter) *compressWriter {
+	zw := gzipWriterPool.Get().(*gzip.Writer)
+	zw.Reset(w)
+
 	return &compressWriter{
 		w:              w,
-		zw:             gzip.NewWriter(w),
+		zw:             zw,
 		headerWritten:  false,
 		shouldCompress: false,
 	}
@@ -72,8 +90,11 @@ func (c *compressWriter) WriteHeader(statusCode int) {
 // Close flushes and closes the gzip.Writer
 func (c *compressWriter) Close() error {
 	if c.shouldCompress {
-		return c.zw.Close()
+		err := c.zw.Close()
+		gzipWriterPool.Put(c.zw)
+		return err
 	}
+	gzipWriterPool.Put(c.zw)
 	return nil
 }
 
@@ -95,8 +116,9 @@ type compressReader struct {
 }
 
 func newCompressReader(r io.ReadCloser) (*compressReader, error) {
-	zr, err := gzip.NewReader(r)
-	if err != nil {
+	zr := gzipReaderPool.Get().(*gzip.Reader)
+	if err := zr.Reset(r); err != nil {
+		gzipReaderPool.Put(zr)
 		return nil, err
 	}
 
@@ -105,24 +127,19 @@ func newCompressReader(r io.ReadCloser) (*compressReader, error) {
 		zr: zr,
 	}, nil
 }
+
 func (c *compressReader) Read(p []byte) (n int, err error) {
 	return c.zr.Read(p)
 }
 
 func (c *compressReader) Close() error {
-	// Close both readers and return any error that occurs
 	rErr := c.r.Close()
-	zrErr := c.zr.Close()
-
-	// Return the first error encountered
-	if rErr != nil {
-		return rErr
-	}
-	return zrErr
+	gzipReaderPool.Put(c.zr)
+	return rErr
 }
 
 // GzipMiddleware wraps an http.Handler with gzip compression and decompression
-func (s *service) GzipMiddleware(h http.Handler) http.Handler {
+func (s *Service) GzipMiddleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Check if client accepts gzip encoding
 		acceptEncoding := r.Header.Get("Accept-Encoding")

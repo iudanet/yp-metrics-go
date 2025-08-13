@@ -16,7 +16,7 @@ func TestParseServerFlags(t *testing.T) {
 		expected *ServerConfig
 	}{
 		{
-			name: "Default_values",
+			name: "defaultValues",
 			args: []string{"cmd"},
 			expected: &ServerConfig{
 				MetricServerHost: "localhost:8080",
