@@ -1,3 +1,5 @@
+// Package retry provides functionality for retrying operations that may fail temporarily.
+// It includes mechanisms for automatic retries with backoff for network and database operations.
 package retry
 
 import (

@@ -14,6 +14,8 @@ run-agent::
 
 build::  statictest test test_race build-agent build-server
 
+staticlint::
+	go run cmd/staticlint/main.go ./...
 
 go_generate::
 	go generate ./...
@@ -146,7 +148,7 @@ test_iter14:: build  test_iter13
     	-source-path=.
 
 
-test:: go_generate
+test:: fmt go_generate staticlint
 	go test  --timeout=50s ./...
 test_race::
 	go test -v -race ./...
@@ -154,6 +156,7 @@ test_race::
 fmt::
 	gofmt -w .
 	goimports -w .
+	go run golang.org/x/tools/go/analysis/passes/fieldalignment/cmd/fieldalignment@latest -fix ./...
 
 
 

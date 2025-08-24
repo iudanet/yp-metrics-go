@@ -1,3 +1,5 @@
+// Package storage provides a PostgreSQL implementation of the storage repository.
+// It manages database connections, handles metrics storage and retrieval with retry capabilities.
 package storage
 
 import (
@@ -48,7 +50,6 @@ func New(ctx context.Context, dsn string) (*postgreStorage, error) {
 
 	// Добавляем retry при подключении
 	err = retry.WithRetry(func() error {
-		var err error
 		pool, err = pgxpool.NewWithConfig(ctx, config)
 		if err != nil {
 			return err
@@ -61,7 +62,8 @@ func New(ctx context.Context, dsn string) (*postgreStorage, error) {
 
 	// Создаем таблицы если их нет
 	err = retry.WithRetry(func() error {
-		conn, err := pool.Acquire(ctx)
+		var conn *pgxpool.Conn
+		conn, err = pool.Acquire(ctx)
 		if err != nil {
 			return err
 		}

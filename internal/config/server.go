@@ -9,15 +9,15 @@ import (
 
 type ServerConfig struct {
 	MetricServerHost string
-	Storage          Storage
 	SginKey          string
+	Storage          Storage
 }
 
 type Storage struct {
-	Restore       bool
 	Path          string
-	StoreInterval int
 	DatabaseDSN   string
+	StoreInterval int
+	Restore       bool
 }
 
 func NewServerConfig() *ServerConfig {

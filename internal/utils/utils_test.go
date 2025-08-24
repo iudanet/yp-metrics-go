@@ -12,8 +12,8 @@ import (
 
 func TestGetRandomNumber(t *testing.T) {
 	tests := []struct {
-		name string
 		fn   func(t *testing.T)
+		name string
 	}{
 		{
 			name: "test_random_number_range",
@@ -47,9 +47,9 @@ func TestGetRandomNumber(t *testing.T) {
 func TestCalculateHash(t *testing.T) {
 	tests := []struct {
 		name     string
-		data     []byte
 		key      string
 		expected string
+		data     []byte
 	}{
 		{
 			name:     "Empty_data_and_key",

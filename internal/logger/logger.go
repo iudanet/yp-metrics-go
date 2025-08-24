@@ -1,3 +1,5 @@
+// Package logger provides logging functionality for the application.
+// It wraps zap logger to provide a consistent logging interface.
 package logger
 
 import (

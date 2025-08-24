@@ -15,8 +15,8 @@ import (
 
 func TestAgentWorkers(t *testing.T) {
 	tests := []struct {
-		name     string
 		testFunc func(t *testing.T, a *Agent)
+		name     string
 	}{
 		{
 			name: "PollWorker_basic_functionality",

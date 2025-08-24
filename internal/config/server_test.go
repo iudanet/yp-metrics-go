@@ -10,10 +10,10 @@ import (
 
 func TestParseServerFlags(t *testing.T) {
 	tests := []struct {
-		name     string
 		envVars  map[string]string
-		args     []string
 		expected *ServerConfig
+		name     string
+		args     []string
 	}{
 		{
 			name: "defaultValues",
@@ -21,9 +21,9 @@ func TestParseServerFlags(t *testing.T) {
 			expected: &ServerConfig{
 				MetricServerHost: "localhost:8080",
 				Storage: Storage{
-					Restore:       false,
 					Path:          "/tmp/metrics-db.json",
 					StoreInterval: 300,
+					Restore:       false,
 					DatabaseDSN:   "",
 				},
 			},
@@ -34,9 +34,9 @@ func TestParseServerFlags(t *testing.T) {
 			expected: &ServerConfig{
 				MetricServerHost: "127.0.0.1:9090",
 				Storage: Storage{
-					Restore:       true,
 					Path:          "/tmp/custom.json",
 					StoreInterval: 60,
+					Restore:       true,
 					DatabaseDSN:   "postgres://user:pass@localhost/db",
 				},
 				SginKey: "secret",

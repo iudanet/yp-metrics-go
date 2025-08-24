@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"log"
-	"os"
 	"os/signal"
 	"sync"
 	"syscall"
@@ -26,7 +25,7 @@ func main() {
 	cfg, err := config.ParseAgentFlags()
 	if err != nil {
 		newLogger.Error("failed to parse agent flags", zap.Error(err))
-		os.Exit(1)
+		log.Fatal("failed to parse agent flags: ", err)
 	}
 	stor := localStore.New()
 

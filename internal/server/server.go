@@ -1,3 +1,5 @@
+// Package server provides HTTP server implementation for the metrics service.
+// It handles HTTP requests, metric storage operations, and includes middleware for compression, logging, and content validation.
 package server
 
 import (
@@ -142,7 +144,8 @@ func (s *Service) GetMetricJSON(w http.ResponseWriter, req *http.Request) {
 	var resp models.Metrics
 	switch metrics.MType {
 	case models.TypeGauge:
-		value, err := s.viewer.GetGauge(req.Context(), metrics.ID)
+		var value float64
+		value, err = s.viewer.GetGauge(req.Context(), metrics.ID)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
@@ -151,7 +154,8 @@ func (s *Service) GetMetricJSON(w http.ResponseWriter, req *http.Request) {
 		resp.MType = metrics.MType
 		resp.Value = &value
 	case models.TypeCounter:
-		delta, err := s.viewer.GetCounter(req.Context(), metrics.ID)
+		var delta int64
+		delta, err = s.viewer.GetCounter(req.Context(), metrics.ID)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return

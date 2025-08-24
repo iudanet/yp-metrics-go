@@ -20,9 +20,9 @@ import (
 )
 
 type TestAgentConfig struct {
+	MetricServerHost string
 	PollInterval     time.Duration
 	ReportInterval   time.Duration
-	MetricServerHost string
 }
 
 func (c *TestAgentConfig) GetPollInterval() time.Duration {
@@ -87,8 +87,8 @@ func TestAgent(t *testing.T) {
 	defer server.Close()
 
 	tests := []struct {
-		name string
 		fn   func(t *testing.T, a *Agent)
+		name string
 	}{
 		{
 			name: "test_metrics_collection",

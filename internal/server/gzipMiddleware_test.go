@@ -42,8 +42,8 @@ func TestGzipMiddleware(t *testing.T) {
 		acceptEncoding   string
 		contentEncoding  string
 		requestBody      string
-		compressRequest  bool
 		expectedEncoding string
+		compressRequest  bool
 		expectCompressed bool
 	}{
 		{
@@ -124,7 +124,8 @@ func TestGzipMiddleware(t *testing.T) {
 			var err error
 
 			if contentEncoding == "gzip" {
-				gz, err := gzip.NewReader(rr.Body)
+				var gz *gzip.Reader
+				gz, err = gzip.NewReader(rr.Body)
 				require.NoError(t, err)
 				defer gz.Close()
 				responseBody, err = io.ReadAll(gz)

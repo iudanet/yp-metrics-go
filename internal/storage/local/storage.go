@@ -1,3 +1,5 @@
+// Package storage provides a local in-memory implementation of the storage repository.
+// It handles storing metrics in memory with persistence to disk and thread-safe operations.
 package storage
 
 import (

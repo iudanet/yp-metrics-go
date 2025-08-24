@@ -49,7 +49,7 @@ func main() {
 		st := localStore.New()
 
 		if cfg.Storage.Restore {
-			err := st.LoadDB(ctx, cfg.Storage.Path)
+			err = st.LoadDB(ctx, cfg.Storage.Path)
 			if err != nil {
 				newLogger.Error("Failed to restore metrics", zap.Error(err))
 			} else {
@@ -94,7 +94,7 @@ func main() {
 
 	go func() {
 		newLogger.Info("Running server", zap.String("address", cfg.MetricServerHost))
-		err := srv.ListenAndServe()
+		err = srv.ListenAndServe()
 		if err != nil && err != http.ErrServerClosed {
 			newLogger.Error("Server error", zap.Error(err))
 			cancel()

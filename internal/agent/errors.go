@@ -3,8 +3,8 @@ package agent
 import "fmt"
 
 type HTTPError struct {
-	StatusCode int
 	Status     string
+	StatusCode int
 }
 
 func (e *HTTPError) Error() string {

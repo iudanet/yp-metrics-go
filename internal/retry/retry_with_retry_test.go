@@ -11,8 +11,8 @@ import (
 
 func TestWithRetry(t *testing.T) {
 	tests := []struct {
-		name      string
 		op        func() error
+		name      string
 		wantError bool
 	}{
 		{
