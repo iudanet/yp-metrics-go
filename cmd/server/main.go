@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"net/http/pprof"
@@ -21,10 +22,15 @@ import (
 	"go.uber.org/zap"
 )
 
-var sugar zap.SugaredLogger
+var (
+	sugar        zap.SugaredLogger
+	buildVersion string = "N/A"
+	buildDate    string = "N/A"
+	buildCommit  string = "N/A"
+)
 
 func main() {
-
+	fmt.Printf("Build version: %s\nBuild date: %s\nBuild commit: %s\n", buildVersion, buildDate, buildCommit)
 	newLogger, err := logger.New("Info")
 	if err != nil {
 		log.Fatal(err)

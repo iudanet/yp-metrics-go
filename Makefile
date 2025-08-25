@@ -2,10 +2,23 @@ RANDOM_PORT:=$(shell random unused-port)
 SERVER_PORT=$(RANDOM_PORT)
 TEMP_FILE=$(shell random tempfile)
 
+VERSION := $(shell git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+COMMIT := $(shell git rev-parse --short HEAD)
+DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+
 build-agent::
-	go build -o cmd/agent/agent cmd/agent/main.go
+	go build \
+	    -ldflags="-X main.buildVersion=$(VERSION) \
+			-X main.buildDate=$(DATE) \
+			-X main.buildCommit=$(COMMIT)" \
+		-o cmd/agent/agent cmd/agent/main.go
+
 build-server::
-	go build -o cmd/server/server cmd/server/main.go
+	go build \
+	    -ldflags="-X main.buildVersion=$(VERSION) \
+			-X main.buildDate=$(DATE) \
+			-X main.buildCommit=$(COMMIT)" \
+		-o cmd/server/server cmd/server/main.go
 run-server::
 	go run cmd/server/main.go -k testKey
 
