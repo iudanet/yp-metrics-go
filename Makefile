@@ -162,7 +162,7 @@ test_iter14:: build  test_iter13
 
 
 test:: fmt go_generate staticlint
-	go test  --timeout=50s ./...
+		TEST_DATABASE_DSN='postgres://metrics:yandex@localhost:5432/metrics_db?sslmode=disable' go test  --timeout=50s ./...
 test_race::
 	go test -v -race ./...
 
@@ -174,7 +174,7 @@ fmt::
 
 
 test_coverage::
-	go test -coverprofile=coverage.out ./...
+	TEST_DATABASE_DSN='postgres://metrics:yandex@localhost:5432/metrics_db?sslmode=disable' go test -coverprofile=coverage.out ./...
 	grep -v "mock_" coverage.out > coverage_filtered.out
 	go tool cover -func=coverage_filtered.out
 	# go tool cover -html=coverage_filtered.out
