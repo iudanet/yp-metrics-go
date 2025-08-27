@@ -9,8 +9,8 @@ import (
 
 func TestMemStorage(t *testing.T) {
 	tests := []struct {
-		name string
 		fn   func(t *testing.T, s *memStorage)
+		name string
 	}{
 		{
 			name: "test_counter_operations",

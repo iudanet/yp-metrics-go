@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"net/http/pprof"
@@ -21,10 +22,15 @@ import (
 	"go.uber.org/zap"
 )
 
-var sugar zap.SugaredLogger
+var (
+	sugar        zap.SugaredLogger
+	buildVersion string = "N/A"
+	buildDate    string = "N/A"
+	buildCommit  string = "N/A"
+)
 
 func main() {
-
+	fmt.Printf("Build version: %s\nBuild date: %s\nBuild commit: %s\n", buildVersion, buildDate, buildCommit)
 	newLogger, err := logger.New("Info")
 	if err != nil {
 		log.Fatal(err)
@@ -49,7 +55,7 @@ func main() {
 		st := localStore.New()
 
 		if cfg.Storage.Restore {
-			err := st.LoadDB(ctx, cfg.Storage.Path)
+			err = st.LoadDB(ctx, cfg.Storage.Path)
 			if err != nil {
 				newLogger.Error("Failed to restore metrics", zap.Error(err))
 			} else {
@@ -94,7 +100,7 @@ func main() {
 
 	go func() {
 		newLogger.Info("Running server", zap.String("address", cfg.MetricServerHost))
-		err := srv.ListenAndServe()
+		err = srv.ListenAndServe()
 		if err != nil && err != http.ErrServerClosed {
 			newLogger.Error("Server error", zap.Error(err))
 			cancel()

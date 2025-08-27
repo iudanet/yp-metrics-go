@@ -1,3 +1,5 @@
+// Package utils provides utility functions used throughout the application.
+// It includes helper functions for generating random numbers and calculating hashes.
 package utils
 
 import (

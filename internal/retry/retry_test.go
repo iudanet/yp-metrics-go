@@ -16,18 +16,18 @@ type mockHTTPError struct {
 	statusCode int
 }
 
-func (m *mockHTTPError) Error() string {
-	return fmt.Sprintf("HTTP %d error", m.statusCode)
-}
-
 func (m *mockHTTPError) HTTPStatusCode() int {
 	return m.statusCode
 }
 
+func (m *mockHTTPError) Error() string {
+	return fmt.Sprintf("HTTP %d error", m.statusCode)
+}
+
 func TestIsRetriableError(t *testing.T) {
 	tests := []struct {
-		name     string
 		err      error
+		name     string
 		expected bool
 	}{
 		{

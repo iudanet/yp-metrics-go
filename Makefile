@@ -2,10 +2,23 @@ RANDOM_PORT:=$(shell random unused-port)
 SERVER_PORT=$(RANDOM_PORT)
 TEMP_FILE=$(shell random tempfile)
 
+VERSION := $(shell git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+COMMIT := $(shell git rev-parse --short HEAD)
+DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+
 build-agent::
-	go build -o cmd/agent/agent cmd/agent/main.go
+	go build \
+	    -ldflags="-X main.buildVersion=$(VERSION) \
+			-X main.buildDate=$(DATE) \
+			-X main.buildCommit=$(COMMIT)" \
+		-o cmd/agent/agent cmd/agent/main.go
+
 build-server::
-	go build -o cmd/server/server cmd/server/main.go
+	go build \
+	    -ldflags="-X main.buildVersion=$(VERSION) \
+			-X main.buildDate=$(DATE) \
+			-X main.buildCommit=$(COMMIT)" \
+		-o cmd/server/server cmd/server/main.go
 run-server::
 	go run cmd/server/main.go -k testKey
 
@@ -14,6 +27,8 @@ run-agent::
 
 build::  statictest test test_race build-agent build-server
 
+staticlint::
+	go run cmd/staticlint/main.go ./...
 
 go_generate::
 	go generate ./...
@@ -146,19 +161,20 @@ test_iter14:: build  test_iter13
     	-source-path=.
 
 
-test:: go_generate
-	go test  --timeout=50s ./...
+test:: fmt go_generate staticlint
+		TEST_DATABASE_DSN='postgres://metrics:yandex@localhost:5432/metrics_db?sslmode=disable' go test  --timeout=50s ./...
 test_race::
 	go test -v -race ./...
 
 fmt::
 	gofmt -w .
 	goimports -w .
+	go run golang.org/x/tools/go/analysis/passes/fieldalignment/cmd/fieldalignment@latest -fix ./...
 
 
 
 test_coverage::
-	go test -coverprofile=coverage.out ./...
+	TEST_DATABASE_DSN='postgres://metrics:yandex@localhost:5432/metrics_db?sslmode=disable' go test -coverprofile=coverage.out ./...
 	grep -v "mock_" coverage.out > coverage_filtered.out
 	go tool cover -func=coverage_filtered.out
 	# go tool cover -html=coverage_filtered.out

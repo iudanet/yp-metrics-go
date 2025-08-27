@@ -2,8 +2,8 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
-	"os"
 	"os/signal"
 	"sync"
 	"syscall"
@@ -15,7 +15,15 @@ import (
 	"go.uber.org/zap"
 )
 
+var (
+	buildVersion string = "N/A"
+	buildDate    string = "N/A"
+	buildCommit  string = "N/A"
+)
+
 func main() {
+	fmt.Printf("Build version: %s\nBuild date: %s\nBuild commit: %s\n", buildVersion, buildDate, buildCommit)
+
 	ctxStop, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	defer stop()
 	newLogger, err := logger.New("Info")
@@ -26,7 +34,7 @@ func main() {
 	cfg, err := config.ParseAgentFlags()
 	if err != nil {
 		newLogger.Error("failed to parse agent flags", zap.Error(err))
-		os.Exit(1)
+		log.Fatal("failed to parse agent flags: ", err)
 	}
 	stor := localStore.New()
 

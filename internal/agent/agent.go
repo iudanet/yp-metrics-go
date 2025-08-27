@@ -1,3 +1,5 @@
+// Package agent implements the metrics collection agent functionality.
+// It provides the core agent implementation for gathering system metrics and reporting them to the server.
 package agent
 
 import (

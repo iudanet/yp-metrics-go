@@ -18,8 +18,8 @@ import (
 
 func TestUpdateMetricJSON(t *testing.T) {
 	tests := []struct {
-		name        string
 		metric      models.Metrics
+		name        string
 		expectError bool
 	}{
 		{

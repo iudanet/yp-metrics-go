@@ -2,6 +2,8 @@ package storage
 
 import (
 	"context"
+	"log"
+	"os"
 	"testing"
 	"time"
 
@@ -11,7 +13,7 @@ import (
 )
 
 func TestPgStorage(t *testing.T) {
-	dsn := "postgres://postgres:postgres@localhost:5432/metrics_db?sslmode=disable"
+	dsn := getTestDSN(t)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -80,6 +82,132 @@ func TestPgStorage(t *testing.T) {
 		assert.Equal(t, int64(7), counter)
 	})
 }
+func TestPgStorage_GetMapCounterAndGauge(t *testing.T) {
+	dsn := getTestDSN(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	store, err := New(ctx, dsn)
+	if err != nil {
+		t.Skipf("Skipping test due to database connection error: %v", err)
+	}
+	require.NoError(t, err)
+
+	// Очищаем таблицы
+	_, err = store.pool.Exec(ctx, "TRUNCATE TABLE gauges, counters")
+	require.NoError(t, err)
+
+	// Добавляем несколько значений
+	err = store.SetCounter(ctx, "counter1", 10)
+	require.NoError(t, err)
+	err = store.SetCounter(ctx, "counter2", 20)
+	require.NoError(t, err)
+
+	err = store.SetGauge(ctx, "gauge1", 1.1)
+	require.NoError(t, err)
+	err = store.SetGauge(ctx, "gauge2", 2.2)
+	require.NoError(t, err)
+
+	// Тестируем GetMapCounter
+	counters, err := store.GetMapCounter(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, map[string]int64{"counter1": 10, "counter2": 20}, counters)
+
+	// Тестируем GetMapGauge
+	gauges, err := store.GetMapGauge(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, map[string]float64{"gauge1": 1.1, "gauge2": 2.2}, gauges)
+}
+
+func TestPgStorage_Ping(t *testing.T) {
+	dsn := getTestDSN(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	store, err := New(ctx, dsn)
+	if err != nil {
+		t.Skipf("Skipping test due to database connection error: %v", err)
+	}
+	require.NoError(t, err)
+
+	err = store.Ping(ctx)
+	assert.NoError(t, err)
+}
+
+func TestPgStorage_WriteBatch_InvalidMetricType(t *testing.T) {
+	dsn := getTestDSN(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	store, err := New(ctx, dsn)
+	if err != nil {
+		t.Skipf("Skipping test due to database connection error: %v", err)
+	}
+	require.NoError(t, err)
+
+	metrics := []models.Metrics{
+		{ID: "invalidMetric", MType: "unknown", Value: ptrFloat64(123)},
+	}
+	err = store.WriteBatch(ctx, metrics)
+	assert.Error(t, err)
+	assert.EqualError(t, err, "invalid metric type")
+}
+
+func TestPgStorage_SetCounter_Incr_Get(t *testing.T) {
+	dsn := getTestDSN(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	store, err := New(ctx, dsn)
+	if err != nil {
+		t.Skipf("Skipping test due to database connection error: %v", err)
+	}
+	require.NoError(t, err)
+
+	_, err = store.pool.Exec(ctx, "TRUNCATE TABLE counters")
+	require.NoError(t, err)
+
+	err = store.SetCounter(ctx, "counter123", 0)
+	require.NoError(t, err)
+
+	err = store.IncrCounter(ctx, "counter123")
+	require.NoError(t, err)
+
+	value, err := store.GetCounter(ctx, "counter123")
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), value)
+}
+
+func TestPgStorage_SetGauge_Get(t *testing.T) {
+	dsn := getTestDSN(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	store, err := New(ctx, dsn)
+	if err != nil {
+		log.Printf("Skipping test due to database connection error: %v", err)
+		t.Skipf("Skipping test due to database connection error: %v", err)
+	}
+	require.NoError(t, err)
+
+	_, err = store.pool.Exec(ctx, "TRUNCATE TABLE gauges")
+	require.NoError(t, err)
+
+	err = store.SetGauge(ctx, "gauge123", 99.99)
+	require.NoError(t, err)
+
+	value, err := store.GetGauge(ctx, "gauge123")
+	require.NoError(t, err)
+	assert.Equal(t, 99.99, value)
+}
 
 func ptrFloat64(v float64) *float64 { return &v }
 func ptrInt64(v int64) *int64       { return &v }
+func getTestDSN(t *testing.T) string {
+	dsn := os.Getenv("TEST_DATABASE_DSN")
+	if dsn == "" {
+		dsn = "postgres://postgres:postgres@localhost:5432/metrics_db?sslmode=disable"
+		t.Logf("Using default DSN: %s", dsn)
+	}
+	return dsn
+}

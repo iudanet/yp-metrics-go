@@ -108,10 +108,10 @@ func (a *Agent) collectPSUtilMetrics(ctx context.Context) error {
 		return fmt.Errorf("failed to get memory stats: %w", err)
 	}
 
-	if err := a.writer.SetGauge(ctx, "TotalMemory", float64(v.Total)); err != nil {
+	if err = a.writer.SetGauge(ctx, "TotalMemory", float64(v.Total)); err != nil {
 		return err
 	}
-	if err := a.writer.SetGauge(ctx, "FreeMemory", float64(v.Free)); err != nil {
+	if err = a.writer.SetGauge(ctx, "FreeMemory", float64(v.Free)); err != nil {
 		return err
 	}
 

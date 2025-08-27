@@ -1,3 +1,5 @@
+// Package storage defines interfaces for working with metric storage.
+// It provides interfaces for reading, writing, and managing metrics in various storage backends.
 package storage
 
 import (

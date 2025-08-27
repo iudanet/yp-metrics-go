@@ -1,3 +1,5 @@
+// Package config provides configuration management functionality for the application.
+// It handles command-line flags and environment variables for both agent and server components.
 package config
 
 import (
@@ -9,10 +11,10 @@ import (
 )
 
 type AgentConfig struct {
-	ReportInterval   int
-	PollInterval     int
 	MetricServerHost string
 	SginKey          string
+	ReportInterval   int
+	PollInterval     int
 	RateLimit        int
 }
 

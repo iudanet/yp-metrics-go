@@ -28,10 +28,10 @@ func TestParseAgentFlags(t *testing.T) {
 	programName := "agent"
 
 	tests := []struct {
+		expected      *AgentConfig
+		envVars       map[string]string
 		name          string
 		args          []string
-		envVars       map[string]string
-		expected      *AgentConfig
 		expectedError bool
 	}{
 		{
@@ -41,8 +41,10 @@ func TestParseAgentFlags(t *testing.T) {
 				PollInterval:     2,
 				ReportInterval:   10,
 				MetricServerHost: "localhost:8080",
+				SginKey:          "",
 				RateLimit:        1,
 			},
+			expectedError: false,
 		},
 		{
 			name: "command_line_flags",
