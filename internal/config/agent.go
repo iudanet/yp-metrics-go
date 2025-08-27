@@ -13,6 +13,7 @@ import (
 type AgentConfig struct {
 	MetricServerHost string
 	SginKey          string
+	RSAPublicKeyPath string
 	ReportInterval   int
 	PollInterval     int
 	RateLimit        int
@@ -36,8 +37,14 @@ func ParseAgentFlags() (*AgentConfig, error) {
 	flag.StringVar(&cfg.MetricServerHost, "a", cfg.MetricServerHost, "server address")
 	flag.StringVar(&cfg.SginKey, "k", cfg.SginKey, "Sgin key")
 	flag.IntVar(&cfg.RateLimit, "l", cfg.RateLimit, "Rate limit for outgoing requests")
+	flag.StringVar(&cfg.RSAPublicKeyPath, "crypto-key", "", "File Public Key")
 
 	flag.Parse()
+
+	envCRYPTOKEY := os.Getenv("CRYPTO_KEY")
+	if envCRYPTOKEY != "" {
+		cfg.RSAPublicKeyPath = envCRYPTOKEY
+	}
 
 	envADDRESS := os.Getenv("ADDRESS")
 	if envADDRESS != "" {

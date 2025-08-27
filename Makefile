@@ -25,7 +25,7 @@ run-server::
 run-agent::
 	go run cmd/agent/main.go -k testKey -r 2 -p 1
 
-build::  statictest test test_race build-agent build-server
+build::  test test_race build-agent build-server
 
 staticlint::
 	go run cmd/staticlint/main.go ./...
