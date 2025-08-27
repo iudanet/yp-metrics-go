@@ -110,7 +110,8 @@ func TestHybridEncryptionErrors(t *testing.T) {
 
 		_, err = Hybrid([]byte("test"), tmpFile.Name())
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to parse public key")
+		// Обновляем проверку на правильное сообщение об ошибке
+		assert.Contains(t, err.Error(), "failed to parse PEM block from public key file")
 	})
 
 	t.Run("empty key file path", func(t *testing.T) {

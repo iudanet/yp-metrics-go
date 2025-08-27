@@ -1,4 +1,4 @@
-// Package encryption provides functions for encrypting and decrypting data using hybrid encryption.
+// Package encryption provides functions for encrypting and decrypting data using RSA and AES-GCM.
 package encryption
 
 import (
@@ -10,6 +10,7 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"hash"
@@ -67,14 +68,21 @@ func loadRSAPublicKey(rsaPublicKeyPath string) (*rsa.PublicKey, error) {
 		return nil, fmt.Errorf("failed to read public key file: %w", err)
 	}
 
-	pubInterface, err := x509.ParsePKIXPublicKey(data)
+	// Парсим PEM блок
+	block, _ := pem.Decode(data)
+	if block == nil {
+		return nil, errors.New("failed to parse PEM block from public key file")
+	}
+
+	// Пытаемся парсить как PKIX (публичный ключ в формате X.509)
+	pubInterface, err := x509.ParsePKIXPublicKey(block.Bytes)
 	if err != nil {
-		// Может быть PEM с PKCS1
-		pubKey, err2 := x509.ParsePKCS1PublicKey(data)
+		// Пытаемся парсить как PKCS1 (RSA публичный ключ)
+		pubKey, err2 := x509.ParsePKCS1PublicKey(block.Bytes)
 		if err2 == nil {
 			return pubKey, nil
 		}
-		return nil, fmt.Errorf("failed to parse public key: %w", err)
+		return nil, fmt.Errorf("failed to parse public key: %w (PKIX error: %v)", err2, err)
 	}
 
 	pubKey, ok := pubInterface.(*rsa.PublicKey)

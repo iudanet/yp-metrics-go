@@ -13,18 +13,35 @@ import (
 
 func ExampleHybrid() {
 	// Создаем временный RSA ключ для примера
-	privateKey, _ := rsa.GenerateKey(rand.Reader, 2048)
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		fmt.Printf("Key generation error: %v\n", err)
+		return
+	}
 
 	// Сохраняем публичный ключ
-	tmpFile, _ := os.CreateTemp("", "example_key_*.pem")
+	tmpFile, err := os.CreateTemp("", "example_key_*.pem")
+	if err != nil {
+		fmt.Printf("Temp file error: %v\n", err)
+		return
+	}
 	defer os.Remove(tmpFile.Name())
 
-	publicKeyBytes, _ := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
+	publicKeyBytes, err := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
+	if err != nil {
+		fmt.Printf("Marshal error: %v\n", err)
+		return
+	}
+
 	publicKeyBlock := &pem.Block{
 		Type:  "PUBLIC KEY",
 		Bytes: publicKeyBytes,
 	}
-	pem.Encode(tmpFile, publicKeyBlock)
+
+	if err = pem.Encode(tmpFile, publicKeyBlock); err != nil {
+		fmt.Printf("PEM encode error: %v\n", err)
+		return
+	}
 	tmpFile.Close()
 
 	// Данные для шифрования
@@ -38,5 +55,5 @@ func ExampleHybrid() {
 	}
 
 	fmt.Printf("Encrypted data length: %d bytes\n", len(encrypted))
-	// Output: Encrypted data length: 512 bytes
+	// Output: Encrypted data length: 455 bytes
 }
