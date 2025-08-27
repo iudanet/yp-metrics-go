@@ -8,9 +8,10 @@ import (
 )
 
 type ServerConfig struct {
-	MetricServerHost string
-	SginKey          string
-	Storage          Storage
+	MetricServerHost  string
+	SginKey           string
+	RSAPrivateKeyPath string
+	Storage           Storage
 }
 
 type Storage struct {
@@ -42,8 +43,13 @@ func ParseServerFlags() *ServerConfig {
 	flag.StringVar(&cfg.SginKey, "k", cfg.SginKey, "sgin key. ENV: KEY ")
 	flag.IntVar(&cfg.Storage.StoreInterval, "i", cfg.Storage.StoreInterval, "Store Interval. ENV: STORE_INTERVAL")
 	flag.BoolVar(&cfg.Storage.Restore, "r", cfg.Storage.Restore, "Restore from disk. Env: RESTORE")
-	flag.Parse()
+	flag.StringVar(&cfg.RSAPrivateKeyPath, "crypto-key", "", "File Private Key. ENV: CRYPTO_KEY ")
 
+	flag.Parse()
+	envCRYPTOKEY := os.Getenv("CRYPTO_KEY")
+	if envCRYPTOKEY != "" {
+		cfg.RSAPrivateKeyPath = envCRYPTOKEY
+	}
 	envAddress := os.Getenv("ADDRESS")
 	if envAddress != "" {
 		cfg.MetricServerHost = envAddress

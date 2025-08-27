@@ -42,11 +42,7 @@ func (a *Agent) sendSingleMetric(metric *models.Metrics) error {
 		return fmt.Errorf("failed to marshal metric to JSON: %w", err)
 	}
 
-	// Определяем endpoint в зависимости от наличия шифрования
 	endpoint := "/update/"
-	if a.config.RSAPublicKeyPath != "" {
-		endpoint = "/update/encrypted/"
-	}
 
 	return a.sendData(jsonData, endpoint)
 }
@@ -62,11 +58,7 @@ func (a *Agent) PushMetricsBatch(metrics []models.Metrics) error {
 		return fmt.Errorf("failed to marshal metrics to JSON: %w", err)
 	}
 
-	// Определяем endpoint в зависимости от наличия шифрования
 	endpoint := "/updates/"
-	if a.config.RSAPublicKeyPath != "" {
-		endpoint = "/updates/encrypted/"
-	}
 
 	return a.sendData(jsonData, endpoint)
 }

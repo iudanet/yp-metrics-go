@@ -20,10 +20,10 @@ build-server::
 			-X main.buildCommit=$(COMMIT)" \
 		-o cmd/server/server cmd/server/main.go
 run-server::
-	go run cmd/server/main.go -k testKey
+	go run cmd/server/main.go -k testKey -crypto-key=test_private.pem
 
 run-agent::
-	go run cmd/agent/main.go -k testKey -r 2 -p 1
+	go run cmd/agent/main.go -k testKey -r 2 -p 1 -crypto-key=test_public.pem
 
 build::  test test_race build-agent build-server
 
@@ -178,3 +178,18 @@ test_coverage::
 	grep -v "mock_" coverage.out > coverage_filtered.out
 	go tool cover -func=coverage_filtered.out
 	# go tool cover -html=coverage_filtered.out
+
+
+generate-test-keys:
+	@echo "Generating test RSA keys..."
+	# Generate private key
+	openssl genrsa -out test_private.pem 2048
+	# Extract public key from private key
+	openssl rsa -in test_private.pem -pubout -out test_public.pem
+	@echo "Test keys generated:"
+	@echo "Private key: test_private.pem"
+	@echo "Public key: test_public.pem"
+	@echo ""
+	@echo "Usage:"
+	@echo "  Server: go run cmd/server/main.go -crypto-key=test_private.pem"
+	@echo "  Agent:  go run cmd/agent/main.go -crypto-key=test_public.pem"
