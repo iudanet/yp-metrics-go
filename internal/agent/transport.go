@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/iudanet/yp-metrics-go/internal/encryption"
 	"github.com/iudanet/yp-metrics-go/internal/models"
 	"github.com/iudanet/yp-metrics-go/internal/retry"
 	"github.com/iudanet/yp-metrics-go/internal/utils"
@@ -41,7 +42,13 @@ func (a *Agent) sendSingleMetric(metric *models.Metrics) error {
 		return fmt.Errorf("failed to marshal metric to JSON: %w", err)
 	}
 
-	return a.sendCompressedData(jsonData, "/update/")
+	// Определяем endpoint в зависимости от наличия шифрования
+	endpoint := "/update/"
+	if a.config.RSAPublicKeyPath != "" {
+		endpoint = "/update/encrypted/"
+	}
+
+	return a.sendData(jsonData, endpoint)
 }
 
 // PushMetricsBatch отправляет метрики батчем на сервер
@@ -55,12 +62,33 @@ func (a *Agent) PushMetricsBatch(metrics []models.Metrics) error {
 		return fmt.Errorf("failed to marshal metrics to JSON: %w", err)
 	}
 
-	return a.sendCompressedData(jsonData, "/updates/")
+	// Определяем endpoint в зависимости от наличия шифрования
+	endpoint := "/updates/"
+	if a.config.RSAPublicKeyPath != "" {
+		endpoint = "/updates/encrypted/"
+	}
+
+	return a.sendData(jsonData, endpoint)
 }
 
-// sendCompressedData отправляет сжатые данные на указанный endpoint
-func (a *Agent) sendCompressedData(jsonData []byte, endpoint string) error {
-	compressedData, err := compressData(jsonData)
+// sendData отправляет данные на указанный endpoint с учетом шифрования
+func (a *Agent) sendData(jsonData []byte, endpoint string) error {
+	var dataToSend []byte
+	var err error
+
+	// Если настроено шифрование, шифруем данные
+	if a.config.RSAPublicKeyPath != "" {
+		dataToSend, err = encryption.Hybrid(jsonData, a.config.RSAPublicKeyPath)
+		if err != nil {
+			return fmt.Errorf("failed to encrypt data: %w", err)
+		}
+	} else {
+		// Иначе используем обычные данные
+		dataToSend = jsonData
+	}
+
+	// Сжимаем данные
+	compressedData, err := compressData(dataToSend)
 	if err != nil {
 		return fmt.Errorf("failed to compress data: %w", err)
 	}
@@ -71,6 +99,7 @@ func (a *Agent) sendCompressedData(jsonData []byte, endpoint string) error {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
+	// Устанавливаем заголовки
 	a.setRequestHeaders(req, jsonData)
 
 	return retry.WithRetry(func() error {
