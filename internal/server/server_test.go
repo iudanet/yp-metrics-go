@@ -108,7 +108,8 @@ func TestUpdateMetric(t *testing.T) {
 // Вспомогательная функция для проверки успешного обновления метрики
 func TestUpdateMetricSuccess(t *testing.T) {
 	store := localStore.New()
-	cfg := config.NewServerConfig()
+	cfg, err := config.ParseServerFlagsArgs([]string{})
+	assert.NoError(t, err)
 	newLogger, err := logger.New("Info")
 	assert.NoError(t, err)
 	svc := NewService(store, cfg, newLogger, store)

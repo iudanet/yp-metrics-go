@@ -51,7 +51,8 @@ func TestUpdateMetricJSON(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			store := localStore.New()
-			cfg := config.NewServerConfig()
+			cfg, err := config.ParseServerFlagsArgs([]string{})
+			assert.NoError(t, err)
 			logger, _ := logger.New("info")
 			svc := NewService(store, cfg, logger, store)
 
@@ -115,7 +116,8 @@ func TestGetMetricJSON(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			store := localStore.New()
-			cfg := config.NewServerConfig()
+			cfg, err := config.ParseServerFlagsArgs([]string{})
+			assert.NoError(t, err)
 			logger, _ := logger.New("info")
 			svc := NewService(store, cfg, logger, store)
 

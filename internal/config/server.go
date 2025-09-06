@@ -2,9 +2,11 @@ package config
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"strconv"
+	"time"
 )
 
 type ServerConfig struct {
@@ -17,74 +19,195 @@ type ServerConfig struct {
 type Storage struct {
 	Path          string
 	DatabaseDSN   string
-	StoreInterval int
+	StoreInterval int // в секундах
 	Restore       bool
 }
 
-func NewServerConfig() *ServerConfig {
+// структура с приоритетными обертками
+type PrioritiServerConfig struct {
+	MetricServerHost  prioritized[string]
+	SginKey           prioritized[string]
+	RSAPrivateKeyPath prioritized[string]
+
+	StoragePath          prioritized[string]
+	StorageDatabaseDSN   prioritized[string]
+	StorageStoreInterval prioritized[int]
+	StorageRestore       prioritized[bool]
+}
+
+// raw структура для JSON конфига
+type rawServerConfig struct {
+	Address       string `json:"address"`
+	SginKey       string `json:"sgin_key"`
+	CryptoKey     string `json:"crypto_key"`
+	StoreFile     string `json:"store_file"`
+	DatabaseDSN   string `json:"database_dsn"`
+	StoreInterval string `json:"store_interval"`
+	Restore       bool   `json:"restore"`
+}
+
+func DefaultServerConfig() *PrioritiServerConfig {
+	cfg := &PrioritiServerConfig{}
+
+	cfg.MetricServerHost.Set("localhost:8080", priorityDefault)
+	cfg.SginKey.Set("", priorityDefault)
+	cfg.RSAPrivateKeyPath.Set("", priorityDefault)
+
+	cfg.StoragePath.Set("/tmp/metrics-db.json", priorityDefault)
+	cfg.StorageDatabaseDSN.Set("", priorityDefault)
+	cfg.StorageStoreInterval.Set(300, priorityDefault) // 5 минут по умолчанию
+	cfg.StorageRestore.Set(false, priorityDefault)
+
+	return cfg
+}
+
+func (c *PrioritiServerConfig) ToPlain() *ServerConfig {
 	return &ServerConfig{
-		MetricServerHost: "localhost:8080",
-		SginKey:          "",
+		MetricServerHost:  c.MetricServerHost.Get(),
+		SginKey:           c.SginKey.Get(),
+		RSAPrivateKeyPath: c.RSAPrivateKeyPath.Get(),
 		Storage: Storage{
-			Restore:       false,
-			Path:          "/tmp/metrics-db.json",
-			StoreInterval: 300,
-			DatabaseDSN:   "",
+			Path:          c.StoragePath.Get(),
+			DatabaseDSN:   c.StorageDatabaseDSN.Get(),
+			StoreInterval: c.StorageStoreInterval.Get(),
+			Restore:       c.StorageRestore.Get(),
 		},
 	}
 }
 
-func ParseServerFlags() *ServerConfig {
-	cfg := NewServerConfig()
-
-	flag.StringVar(&cfg.MetricServerHost, "a", cfg.MetricServerHost, "server address. ENV: ADDRESS")
-	flag.StringVar(&cfg.Storage.Path, "f", cfg.Storage.Path, "db file. ENV: FILE_STORAGE_PATH ")
-	flag.StringVar(&cfg.Storage.DatabaseDSN, "d", cfg.Storage.DatabaseDSN, "Postgres DSN uri postgres://username:password@localhost:5432/metrics_db. ENV: DATABASE_DSN ")
-	flag.StringVar(&cfg.SginKey, "k", cfg.SginKey, "sgin key. ENV: KEY ")
-	flag.IntVar(&cfg.Storage.StoreInterval, "i", cfg.Storage.StoreInterval, "Store Interval. ENV: STORE_INTERVAL")
-	flag.BoolVar(&cfg.Storage.Restore, "r", cfg.Storage.Restore, "Restore from disk. Env: RESTORE")
-	flag.StringVar(&cfg.RSAPrivateKeyPath, "crypto-key", "", "File Private Key. ENV: CRYPTO_KEY ")
-
-	flag.Parse()
-	envCRYPTOKEY := os.Getenv("CRYPTO_KEY")
-	if envCRYPTOKEY != "" {
-		cfg.RSAPrivateKeyPath = envCRYPTOKEY
+func NewServerConfig() *ServerConfig {
+	cfg, err := ParseServerFlagsArgs(os.Args[1:])
+	if err != nil {
+		log.Fatal(err)
 	}
-	envAddress := os.Getenv("ADDRESS")
-	if envAddress != "" {
-		cfg.MetricServerHost = envAddress
-	}
-	envKey := os.Getenv("KEY")
-	if envKey != "" {
-		cfg.SginKey = envKey
-	}
-	envFileStoragePath := os.Getenv("FILE_STORAGE_PATH")
-	if envFileStoragePath != "" {
-		cfg.Storage.Path = envFileStoragePath
-	}
-	envDatabaseDSN := os.Getenv("DATABASE_DSN")
-	if envDatabaseDSN != "" {
-		cfg.Storage.DatabaseDSN = envDatabaseDSN
-	}
-	envStoreInterval := os.Getenv("STORE_INTERVAL")
-	if envStoreInterval != "" {
-		interval, err := strconv.Atoi(envStoreInterval)
-		if err != nil {
-			log.Println("Error parsing ENV: STORE_INTERVAL", err)
-		} else {
-			cfg.Storage.StoreInterval = interval
-		}
-	}
-
-	envRestore := os.Getenv("RESTORE")
-	if envRestore != "" {
-		restore, err := strconv.ParseBool(envRestore)
-		if err != nil {
-			log.Println("Error parsing ENV: RESTORE", err)
-		} else {
-			cfg.Storage.Restore = restore
-		}
-	}
-
 	return cfg
+}
+
+func ParseServerFlagsArgs(args []string) (*ServerConfig, error) {
+	cfg := DefaultServerConfig()
+
+	fs := flag.NewFlagSet("server", flag.ContinueOnError)
+
+	configFileFlag := fs.String("config", "", "config JSON file path")
+
+	fs.StringVar(&cfg.MetricServerHost.value, "a", cfg.MetricServerHost.Get(), "server address. ENV: ADDRESS")
+	fs.StringVar(&cfg.StoragePath.value, "f", cfg.StoragePath.Get(), "db file. ENV: FILE_STORAGE_PATH")
+	fs.StringVar(&cfg.StorageDatabaseDSN.value, "d", cfg.StorageDatabaseDSN.Get(), "Postgres DSN uri. ENV: DATABASE_DSN")
+	fs.StringVar(&cfg.SginKey.value, "k", cfg.SginKey.Get(), "sign key. ENV: KEY")
+	fs.IntVar(&cfg.StorageStoreInterval.value, "i", cfg.StorageStoreInterval.Get(), "Store Interval in seconds. ENV: STORE_INTERVAL")
+	fs.BoolVar(&cfg.StorageRestore.value, "r", cfg.StorageRestore.Get(), "Restore from disk. ENV: RESTORE")
+	fs.StringVar(&cfg.RSAPrivateKeyPath.value, "crypto-key", cfg.RSAPrivateKeyPath.Get(), "File Private Key. ENV: CRYPTO_KEY")
+
+	if err := fs.Parse(args); err != nil {
+		return nil, err
+	}
+
+	// Устанавливаем приоритет 2 для значений из флагов
+	cfg.MetricServerHost.priority = priorityFlags
+	cfg.StoragePath.priority = priorityFlags
+	cfg.StorageDatabaseDSN.priority = priorityFlags
+	cfg.SginKey.priority = priorityFlags
+	cfg.StorageStoreInterval.priority = priorityFlags
+	cfg.StorageRestore.priority = priorityFlags
+	cfg.RSAPrivateKeyPath.priority = priorityFlags
+
+	// 1. Конфиг из файла, по пути через флаг -config (priorityConfigFile)
+	if *configFileFlag != "" {
+		f, err := os.Open(*configFileFlag)
+		if err != nil {
+			return nil, fmt.Errorf("open config file flag '%s' error: %w", *configFileFlag, err)
+		}
+		defer f.Close()
+
+		var raw rawServerConfig
+		if err := parseJSONConfigFile(f, &raw); err != nil {
+			return nil, err
+		}
+		if err := setFromRawServerConfig(cfg, &raw, priorityConfigFile); err != nil {
+			return nil, err
+		}
+	}
+
+	// 2. Конфиг из env-переменной CONFIG_FILE (превалирует над конфигом из флага)
+	if envFile := os.Getenv("CONFIG_FILE"); envFile != "" {
+		f, err := os.Open(envFile)
+		if err != nil {
+			return nil, fmt.Errorf("open config file env '%s' error: %w", envFile, err)
+		}
+		defer f.Close()
+
+		var raw rawServerConfig
+		if err := parseJSONConfigFile(f, &raw); err != nil {
+			return nil, err
+		}
+		if err := setFromRawServerConfig(cfg, &raw, priorityConfigFile); err != nil {
+			return nil, err
+		}
+	}
+
+	// 3. Переменные окружения (приоритет 1)
+	if env := os.Getenv("CRYPTO_KEY"); env != "" {
+		cfg.RSAPrivateKeyPath.Set(env, priorityEnv)
+	}
+	if env := os.Getenv("ADDRESS"); env != "" {
+		cfg.MetricServerHost.Set(env, priorityEnv)
+	}
+	if env := os.Getenv("KEY"); env != "" {
+		cfg.SginKey.Set(env, priorityEnv)
+	}
+	if env := os.Getenv("FILE_STORAGE_PATH"); env != "" {
+		cfg.StoragePath.Set(env, priorityEnv)
+	}
+	if env := os.Getenv("DATABASE_DSN"); env != "" {
+		cfg.StorageDatabaseDSN.Set(env, priorityEnv)
+	}
+
+	if val := os.Getenv("STORE_INTERVAL"); val != "" {
+		i, err := strconv.Atoi(val)
+		if err != nil {
+			return nil, fmt.Errorf("invalid STORE_INTERVAL env %q: %w", val, err)
+		}
+		cfg.StorageStoreInterval.Set(i, priorityEnv)
+	}
+
+	if val := os.Getenv("RESTORE"); val != "" {
+		b, err := strconv.ParseBool(val)
+		if err != nil {
+			return nil, fmt.Errorf("invalid RESTORE env %q: %w", val, err)
+		}
+		cfg.StorageRestore.Set(b, priorityEnv)
+	}
+
+	return cfg.ToPlain(), nil
+}
+
+func setFromRawServerConfig(cfg *PrioritiServerConfig, raw *rawServerConfig, priority int) error {
+	if raw.Address != "" {
+		cfg.MetricServerHost.Set(raw.Address, priority)
+	}
+	if raw.SginKey != "" {
+		cfg.SginKey.Set(raw.SginKey, priority)
+	}
+	if raw.CryptoKey != "" {
+		cfg.RSAPrivateKeyPath.Set(raw.CryptoKey, priority)
+	}
+	if raw.StoreFile != "" {
+		cfg.StoragePath.Set(raw.StoreFile, priority)
+	}
+	if raw.DatabaseDSN != "" {
+		cfg.StorageDatabaseDSN.Set(raw.DatabaseDSN, priority)
+	}
+	cfg.StorageRestore.Set(raw.Restore, priority)
+
+	// Разбираем store_interval строку (например "1s")
+	if raw.StoreInterval != "" {
+		dur, err := time.ParseDuration(raw.StoreInterval)
+		if err != nil {
+			return fmt.Errorf("invalid store_interval in config: %w", err)
+		}
+		seconds := int(dur.Seconds())
+		cfg.StorageStoreInterval.Set(seconds, priority)
+	}
+
+	return nil
 }

@@ -1,7 +1,6 @@
 package config
 
 import (
-	"flag"
 	"os"
 	"testing"
 
@@ -9,34 +8,25 @@ import (
 )
 
 func TestNewAgentConfig(t *testing.T) {
-	cfg := NewAgentConfig()
+	cfg, err := ParseAgentFlagsArgs([]string{})
+	assert.NoError(t, err)
 
 	assert.Equal(t, 2, cfg.PollInterval, "default poll interval should be 2")
 	assert.Equal(t, 10, cfg.ReportInterval, "default report interval should be 10")
 	assert.Equal(t, "localhost:8080", cfg.MetricServerHost, "default address should be localhost:8080")
 }
 
-func TestParseAgentFlags(t *testing.T) {
-	// Сохраняем оригинальные аргументы и флаги
-	oldArgs := os.Args
-	oldFlagCommandLine := flag.CommandLine
-	defer func() {
-		os.Args = oldArgs
-		flag.CommandLine = oldFlagCommandLine
-	}()
-
-	programName := "agent"
-
+func TestParseAgentFlagsArgs(t *testing.T) {
 	tests := []struct {
-		expected      *AgentConfig
 		envVars       map[string]string
+		expected      *AgentConfig
 		name          string
 		args          []string
 		expectedError bool
 	}{
 		{
 			name: "defaultValues",
-			args: []string{programName},
+			args: []string{},
 			expected: &AgentConfig{
 				PollInterval:     2,
 				ReportInterval:   10,
@@ -48,18 +38,19 @@ func TestParseAgentFlags(t *testing.T) {
 		},
 		{
 			name: "command_line_flags",
-			args: []string{programName, "-k", "testKey", "-p", "5", "-r", "15", "-l", "5", "-a", "localhost:9090"},
+			args: []string{"-k", "testKey", "-p", "5", "-r", "15", "-l", "5", "-a", "localhost:9090"},
 			expected: &AgentConfig{
 				PollInterval:     5,
 				ReportInterval:   15,
 				MetricServerHost: "localhost:9090",
-				RateLimit:        5,
 				SginKey:          "testKey",
+				RateLimit:        5,
 			},
+			expectedError: false,
 		},
 		{
 			name: "env_vars",
-			args: []string{programName},
+			args: []string{},
 			envVars: map[string]string{
 				"ADDRESS":         "localhost:7070",
 				"REPORT_INTERVAL": "20",
@@ -71,13 +62,14 @@ func TestParseAgentFlags(t *testing.T) {
 				PollInterval:     3,
 				ReportInterval:   20,
 				MetricServerHost: "localhost:7070",
-				RateLimit:        5,
 				SginKey:          "testKey2",
+				RateLimit:        5,
 			},
+			expectedError: false,
 		},
 		{
 			name: "env_vars_override_flags",
-			args: []string{programName, "-k", "testKey", "-p", "5", "-r", "15", "-l", "5", "-a", "localhost:9090"},
+			args: []string{"-k", "testKey", "-p", "5", "-r", "15", "-l", "5", "-a", "localhost:9090"},
 			envVars: map[string]string{
 				"ADDRESS":         "localhost:7070",
 				"REPORT_INTERVAL": "20",
@@ -89,54 +81,44 @@ func TestParseAgentFlags(t *testing.T) {
 				PollInterval:     3,
 				ReportInterval:   20,
 				MetricServerHost: "localhost:7070",
-				RateLimit:        6,
 				SginKey:          "testKey3",
+				RateLimit:        6,
 			},
+			expectedError: false,
 		},
 		{
-			name: "invalid_report_interval",
-			args: []string{programName},
-			envVars: map[string]string{
-				"REPORT_INTERVAL": "invalid",
-			},
+			name:          "invalid_report_interval",
+			args:          []string{},
+			envVars:       map[string]string{"REPORT_INTERVAL": "invalid"},
 			expectedError: true,
 		},
 		{
-			name: "invalid_poll_interval",
-			args: []string{programName},
-			envVars: map[string]string{
-				"POLL_INTERVAL": "invalid",
-			},
+			name:          "invalid_poll_interval",
+			args:          []string{},
+			envVars:       map[string]string{"POLL_INTERVAL": "invalid"},
 			expectedError: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Сбрасываем флаги перед каждым тестом
-			flag.CommandLine = flag.NewFlagSet(programName, flag.ExitOnError)
-
-			// Очищаем переменные окружения
-			os.Unsetenv("ADDRESS")
-			os.Unsetenv("REPORT_INTERVAL")
-			os.Unsetenv("POLL_INTERVAL")
-			os.Unsetenv("KEY")
-			os.Unsetenv("RATE_LIMIT")
-
-			// Устанавливаем тестовые переменные окружения
+			// Set environment variables
 			for k, v := range tt.envVars {
 				err := os.Setenv(k, v)
-				assert.NoError(t, err, "failed to set env variable")
+				assert.NoError(t, err)
 			}
+			// Cleanup env after test
+			defer func() {
+				for k := range tt.envVars {
+					os.Unsetenv(k)
+				}
+			}()
 
-			// Устанавливаем тестовые аргументы командной строки
-			os.Args = tt.args
-
-			// Выполняем тестируемую функцию
-			cfg, err := ParseAgentFlags()
+			cfg, err := ParseAgentFlagsArgs(tt.args)
 
 			if tt.expectedError {
 				assert.Error(t, err)
+				assert.Nil(t, cfg)
 			} else {
 				assert.NoError(t, err)
 				assert.Equal(t, tt.expected, cfg)
@@ -145,52 +127,48 @@ func TestParseAgentFlags(t *testing.T) {
 	}
 }
 
-func TestParseAgentFlags_NegativeValues(t *testing.T) {
-	// Сохраняем оригинальные значения
-	oldArgs := os.Args
-	oldFlagCommandLine := flag.CommandLine
+func TestParseAgentFlagsArgs_NegativeValues(t *testing.T) {
+	tests := []struct {
+		envVars       map[string]string
+		name          string
+		args          []string
+		expectedPoll  int
+		expectedError bool
+	}{
+		{
+			name:         "negative_report_interval",
+			args:         []string{},
+			envVars:      map[string]string{"REPORT_INTERVAL": "-10"},
+			expectedPoll: -10,
+		},
+		{
+			name:         "negative_poll_interval",
+			args:         []string{},
+			envVars:      map[string]string{"POLL_INTERVAL": "-5"},
+			expectedPoll: -5,
+		},
+	}
 
-	// Очищаем все переменные окружения перед тестом
-	os.Unsetenv("ADDRESS")
-	os.Unsetenv("REPORT_INTERVAL")
-	os.Unsetenv("POLL_INTERVAL")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for k, v := range tt.envVars {
+				err := os.Setenv(k, v)
+				assert.NoError(t, err)
+			}
+			defer func() {
+				for k := range tt.envVars {
+					os.Unsetenv(k)
+				}
+			}()
 
-	defer func() {
-		// Восстанавливаем оригинальные значения
-		os.Args = oldArgs
-		flag.CommandLine = oldFlagCommandLine
-		// Очищаем переменные окружения после теста
-		os.Unsetenv("ADDRESS")
-		os.Unsetenv("REPORT_INTERVAL")
-		os.Unsetenv("POLL_INTERVAL")
-	}()
+			cfg, err := ParseAgentFlagsArgs(tt.args)
+			assert.NoError(t, err)
 
-	t.Run("negative report interval", func(t *testing.T) {
-		// Сбрасываем флаги
-		flag.CommandLine = flag.NewFlagSet("agent", flag.ExitOnError)
-		os.Args = []string{"agent"}
-
-		err := os.Setenv("REPORT_INTERVAL", "-10")
-		assert.NoError(t, err)
-
-		cfg, err := ParseAgentFlags()
-		assert.NoError(t, err)
-		assert.Equal(t, -10, cfg.ReportInterval)
-	})
-
-	t.Run("negative poll interval", func(t *testing.T) {
-		// Сбрасываем флаги
-		flag.CommandLine = flag.NewFlagSet("agent", flag.ExitOnError)
-		os.Args = []string{"agent"}
-
-		// Очищаем предыдущее значение
-		os.Unsetenv("REPORT_INTERVAL")
-
-		err := os.Setenv("POLL_INTERVAL", "-5")
-		assert.NoError(t, err)
-
-		cfg, err := ParseAgentFlags()
-		assert.NoError(t, err)
-		assert.Equal(t, -5, cfg.PollInterval)
-	})
+			if tt.name == "negative_report_interval" {
+				assert.Equal(t, tt.expectedPoll, cfg.ReportInterval)
+			} else if tt.name == "negative_poll_interval" {
+				assert.Equal(t, tt.expectedPoll, cfg.PollInterval)
+			}
+		})
+	}
 }

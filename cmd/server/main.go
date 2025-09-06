@@ -31,14 +31,14 @@ var (
 
 func main() {
 	fmt.Printf("Build version: %s\nBuild date: %s\nBuild commit: %s\n", buildVersion, buildDate, buildCommit)
+	// делаем регистратор SugaredLogger
 	newLogger, err := logger.New("Info")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// делаем регистратор SugaredLogger
+	cfg := config.NewServerConfig()
 
-	cfg := config.ParseServerFlags()
 	ctx, cancel := context.WithCancel(context.Background())
 	memWg := sync.WaitGroup{}
 	defer cancel()

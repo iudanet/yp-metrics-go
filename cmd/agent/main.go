@@ -12,7 +12,6 @@ import (
 	"github.com/iudanet/yp-metrics-go/internal/config"
 	"github.com/iudanet/yp-metrics-go/internal/logger"
 	localStore "github.com/iudanet/yp-metrics-go/internal/storage/local"
-	"go.uber.org/zap"
 )
 
 var (
@@ -31,11 +30,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	cfg, err := config.ParseAgentFlags()
-	if err != nil {
-		newLogger.Error("failed to parse agent flags", zap.Error(err))
-		log.Fatal("failed to parse agent flags: ", err)
-	}
+	cfg := config.NewAgentConfig()
 	stor := localStore.New()
 
 	a := agent.NewAgent(cfg, stor, newLogger)
