@@ -110,24 +110,26 @@ func main() {
 		err = srv.ListenAndServe()
 		if err != nil && err != http.ErrServerClosed {
 			newLogger.Error("Server error", zap.Error(err))
+
 			cancel()
 		}
 	}()
 
 	// Graceful shutdown
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-	sig := <-sigCh
+	signalCh := make(chan os.Signal, 1)
+	signal.Notify(signalCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	sig := <-signalCh
 	newLogger.Info("Received signal", zap.String("signal", sig.String()))
+
 	cancel()
 	// ждем пока сохранится база при отключении
 	if cfg.Storage.DatabaseDSN == "" {
 		memWg.Wait()
 	}
 
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	shutdCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer shutdownCancel()
-	err = srv.Shutdown(shutdownCtx)
+	err = srv.Shutdown(shutdCtx)
 	if err != nil {
 		newLogger.Error("Server shutdown error", zap.Error(err))
 	} else {

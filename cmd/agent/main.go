@@ -23,8 +23,6 @@ var (
 func main() {
 	fmt.Printf("Build version: %s\nBuild date: %s\nBuild commit: %s\n", buildVersion, buildDate, buildCommit)
 
-	ctxStop, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-	defer stop()
 	newLogger, err := logger.New("Info")
 	if err != nil {
 		log.Fatal(err)
@@ -32,6 +30,9 @@ func main() {
 
 	cfg := config.NewAgentConfig()
 	stor := localStore.New()
+
+	ctxStop, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	defer stop()
 
 	a := agent.NewAgent(cfg, stor, newLogger)
 	var wg sync.WaitGroup

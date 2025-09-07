@@ -101,7 +101,7 @@ func ParseAgentFlagsArgs(args []string) (*AgentConfig, error) {
 	}
 
 	// 2. Конфигурация из env файлу CONFIG_FILE (превалирует над конфигом из флага)
-	if envFile := os.Getenv("CONFIG_FILE"); envFile != "" {
+	if envFile, ok := os.LookupEnv("CONFIG_FILE"); ok {
 		f, err := os.Open(envFile)
 		if err != nil {
 			return nil, fmt.Errorf("open config file env '%s' error: %w", envFile, err)
@@ -125,18 +125,18 @@ func ParseAgentFlagsArgs(args []string) (*AgentConfig, error) {
 	}
 
 	// 4. Переменные окружения всегда самый высокий приоритет
-	if env := os.Getenv("CRYPTO_KEY"); env != "" {
+	if env, ok := os.LookupEnv("CRYPTO_KEY"); ok && env != "" {
 		cfg.RSAPublicKeyPath.Set(env, priorityEnv)
 	}
-	if env := os.Getenv("ADDRESS"); env != "" {
+	if env, ok := os.LookupEnv("ADDRESS"); ok && env != "" {
 		cfg.MetricServerHost.Set(env, priorityEnv)
 	}
-	if env := os.Getenv("KEY"); env != "" {
+	if env, ok := os.LookupEnv("KEY"); ok && env != "" {
 		cfg.SginKey.Set(env, priorityEnv)
 	}
 
 	// Парсим целочисленные переменные окружения напрямую
-	if val := os.Getenv("REPORT_INTERVAL"); val != "" {
+	if val, ok := os.LookupEnv("REPORT_INTERVAL"); ok && val != "" {
 		i, err := strconv.Atoi(val)
 		if err != nil {
 			return nil, fmt.Errorf("invalid REPORT_INTERVAL env %q: %w", val, err)
@@ -144,7 +144,7 @@ func ParseAgentFlagsArgs(args []string) (*AgentConfig, error) {
 		cfg.ReportInterval.Set(i, priorityEnv)
 	}
 
-	if val := os.Getenv("POLL_INTERVAL"); val != "" {
+	if val, ok := os.LookupEnv("POLL_INTERVAL"); ok && val != "" {
 		i, err := strconv.Atoi(val)
 		if err != nil {
 			return nil, fmt.Errorf("invalid POLL_INTERVAL env %q: %w", val, err)
@@ -152,7 +152,7 @@ func ParseAgentFlagsArgs(args []string) (*AgentConfig, error) {
 		cfg.PollInterval.Set(i, priorityEnv)
 	}
 
-	if val := os.Getenv("RATE_LIMIT"); val != "" {
+	if val, ok := os.LookupEnv("RATE_LIMIT"); ok && val != "" {
 		i, err := strconv.Atoi(val)
 		if err != nil {
 			return nil, fmt.Errorf("invalid RATE_LIMIT env %q: %w", val, err)

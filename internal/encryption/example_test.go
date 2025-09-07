@@ -15,7 +15,7 @@ func ExampleHybrid() {
 	// Создаем временный RSA ключ для примера
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
-		fmt.Printf("Key generation error: %v\n", err)
+		fmt.Printf("key generation error: %v\n", err)
 		return
 	}
 

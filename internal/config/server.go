@@ -129,7 +129,7 @@ func ParseServerFlagsArgs(args []string) (*ServerConfig, error) {
 	}
 
 	// 2. Конфиг из env-переменной CONFIG_FILE (превалирует над конфигом из флага)
-	if envFile := os.Getenv("CONFIG_FILE"); envFile != "" {
+	if envFile, ok := os.LookupEnv("CONFIG_FILE"); ok {
 		f, err := os.Open(envFile)
 		if err != nil {
 			return nil, fmt.Errorf("open config file env '%s' error: %w", envFile, err)
@@ -146,23 +146,23 @@ func ParseServerFlagsArgs(args []string) (*ServerConfig, error) {
 	}
 
 	// 3. Переменные окружения (приоритет 1)
-	if env := os.Getenv("CRYPTO_KEY"); env != "" {
+	if env, ok := os.LookupEnv("CRYPTO_KEY"); ok && env != "" {
 		cfg.RSAPrivateKeyPath.Set(env, priorityEnv)
 	}
-	if env := os.Getenv("ADDRESS"); env != "" {
+	if env, ok := os.LookupEnv("ADDRESS"); ok && env != "" {
 		cfg.MetricServerHost.Set(env, priorityEnv)
 	}
-	if env := os.Getenv("KEY"); env != "" {
+	if env, ok := os.LookupEnv("KEY"); ok && env != "" {
 		cfg.SginKey.Set(env, priorityEnv)
 	}
-	if env := os.Getenv("FILE_STORAGE_PATH"); env != "" {
+	if env, ok := os.LookupEnv("FILE_STORAGE_PATH"); ok && env != "" {
 		cfg.StoragePath.Set(env, priorityEnv)
 	}
-	if env := os.Getenv("DATABASE_DSN"); env != "" {
+	if env, ok := os.LookupEnv("DATABASE_DSN"); ok && env != "" {
 		cfg.StorageDatabaseDSN.Set(env, priorityEnv)
 	}
 
-	if val := os.Getenv("STORE_INTERVAL"); val != "" {
+	if val, ok := os.LookupEnv("STORE_INTERVAL"); ok && val != "" {
 		i, err := strconv.Atoi(val)
 		if err != nil {
 			return nil, fmt.Errorf("invalid STORE_INTERVAL env %q: %w", val, err)
@@ -170,7 +170,7 @@ func ParseServerFlagsArgs(args []string) (*ServerConfig, error) {
 		cfg.StorageStoreInterval.Set(i, priorityEnv)
 	}
 
-	if val := os.Getenv("RESTORE"); val != "" {
+	if val, ok := os.LookupEnv("RESTORE"); ok && val != "" {
 		b, err := strconv.ParseBool(val)
 		if err != nil {
 			return nil, fmt.Errorf("invalid RESTORE env %q: %w", val, err)
