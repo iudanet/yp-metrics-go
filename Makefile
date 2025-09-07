@@ -193,3 +193,7 @@ generate-test-keys:
 	@echo "Usage:"
 	@echo "  Server: go run cmd/server/main.go -crypto-key=test_private.pem"
 	@echo "  Agent:  go run cmd/agent/main.go -crypto-key=test_public.pem"
+
+go_update_all::
+	go get -u ./...
+	go mod tidy
