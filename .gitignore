@@ -26,3 +26,5 @@ vendor/
 
 # DB files
 *.json
+
+*.pem

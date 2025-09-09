@@ -14,7 +14,8 @@ import (
 
 func TestCheckContentType(t *testing.T) {
 	// Setup
-	cfg := config.NewServerConfig()
+	cfg, err := config.ParseServerFlagsArgs([]string{})
+	assert.NoError(t, err)
 	logger, _ := logger.New("Info")
 	store := localStore.New()
 	svc := NewService(store, cfg, logger, store)

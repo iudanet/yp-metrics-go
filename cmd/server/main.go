@@ -31,14 +31,14 @@ var (
 
 func main() {
 	fmt.Printf("Build version: %s\nBuild date: %s\nBuild commit: %s\n", buildVersion, buildDate, buildCommit)
+	// делаем регистратор SugaredLogger
 	newLogger, err := logger.New("Info")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// делаем регистратор SugaredLogger
+	cfg := config.NewServerConfig()
 
-	cfg := config.ParseServerFlags()
 	ctx, cancel := context.WithCancel(context.Background())
 	memWg := sync.WaitGroup{}
 	defer cancel()
@@ -77,8 +77,15 @@ func main() {
 	// chi отключен для проходждения тестов. хотел сделать с нативным новым роутером.
 	_ = chi.NewRouter()
 	m := http.NewServeMux()
-	m.Handle(`POST /update/{$}`, svc.CheckContentType(http.HandlerFunc(svc.UpdateMetricJSON)))
-	m.Handle(`POST /updates/{$}`, svc.CheckContentType(svc.VerifyHash(http.HandlerFunc(svc.UpdateMetricsBatch))))
+	// Базовые обработчики
+	m.Handle(`POST /update/{$}`, svc.CheckContentType(
+		svc.DecryptionMiddleware(
+			http.HandlerFunc(svc.UpdateMetricJSON))))
+
+	m.Handle(`POST /updates/{$}`, svc.CheckContentType(
+		svc.DecryptionMiddleware(
+			svc.VerifyHash(
+				http.HandlerFunc(svc.UpdateMetricsBatch)))))
 	m.Handle(`POST /value/{$}`, svc.CheckContentType(http.HandlerFunc(svc.GetMetricJSON)))
 
 	m.HandleFunc(`POST /update/{typeMetrics}/{name}/{value}`, svc.UpdateMetric)
@@ -103,24 +110,26 @@ func main() {
 		err = srv.ListenAndServe()
 		if err != nil && err != http.ErrServerClosed {
 			newLogger.Error("Server error", zap.Error(err))
+
 			cancel()
 		}
 	}()
 
 	// Graceful shutdown
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-	sig := <-sigCh
+	signalCh := make(chan os.Signal, 1)
+	signal.Notify(signalCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	sig := <-signalCh
 	newLogger.Info("Received signal", zap.String("signal", sig.String()))
+
 	cancel()
 	// ждем пока сохранится база при отключении
 	if cfg.Storage.DatabaseDSN == "" {
 		memWg.Wait()
 	}
 
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	shutdCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer shutdownCancel()
-	err = srv.Shutdown(shutdownCtx)
+	err = srv.Shutdown(shutdCtx)
 	if err != nil {
 		newLogger.Error("Server shutdown error", zap.Error(err))
 	} else {

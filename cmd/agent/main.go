@@ -12,7 +12,6 @@ import (
 	"github.com/iudanet/yp-metrics-go/internal/config"
 	"github.com/iudanet/yp-metrics-go/internal/logger"
 	localStore "github.com/iudanet/yp-metrics-go/internal/storage/local"
-	"go.uber.org/zap"
 )
 
 var (
@@ -24,19 +23,16 @@ var (
 func main() {
 	fmt.Printf("Build version: %s\nBuild date: %s\nBuild commit: %s\n", buildVersion, buildDate, buildCommit)
 
-	ctxStop, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-	defer stop()
 	newLogger, err := logger.New("Info")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	cfg, err := config.ParseAgentFlags()
-	if err != nil {
-		newLogger.Error("failed to parse agent flags", zap.Error(err))
-		log.Fatal("failed to parse agent flags: ", err)
-	}
+	cfg := config.NewAgentConfig()
 	stor := localStore.New()
+
+	ctxStop, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	defer stop()
 
 	a := agent.NewAgent(cfg, stor, newLogger)
 	var wg sync.WaitGroup

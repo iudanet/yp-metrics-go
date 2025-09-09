@@ -19,7 +19,8 @@ func TestWithLogging(t *testing.T) {
 	logger := zap.New(core) // используем *zap.Logger вместо SugaredLogger
 
 	// Setup service
-	cfg := config.NewServerConfig()
+	cfg, err := config.ParseServerFlagsArgs([]string{})
+	assert.NoError(t, err)
 	store := localStore.New()
 	svc := &Service{
 		storage: store,
@@ -101,7 +102,8 @@ func TestWithLogging_Panics(t *testing.T) {
 	logger := zap.New(core) // используем *zap.Logger
 
 	// Setup service
-	cfg := config.NewServerConfig()
+	cfg, err := config.ParseServerFlagsArgs([]string{})
+	assert.NoError(t, err)
 	store := localStore.New()
 	svc := &Service{
 		storage: store,
