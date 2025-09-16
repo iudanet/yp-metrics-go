@@ -102,7 +102,7 @@ func main() {
 
 	srv := &http.Server{
 		Addr:    cfg.MetricServerHost,
-		Handler: svc.GzipMiddleware(svc.WithLogging(m)),
+		Handler: svc.VerifyIP(svc.GzipMiddleware(svc.WithLogging(m))),
 	}
 
 	go func() {

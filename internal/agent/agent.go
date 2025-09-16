@@ -4,6 +4,7 @@ package agent
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"runtime"
 	"sync"
@@ -17,19 +18,26 @@ import (
 
 // Agent представляет агент для сбора и отправки метрик
 type Agent struct {
-	memstats  *runtime.MemStats
-	config    *config.AgentConfig
 	writer    storage.MetricWriter
 	counter   storage.CounterIncrementer
 	reader    storage.MetricReader
+	memstats  *runtime.MemStats
+	config    *config.AgentConfig
 	client    *http.Client
 	logger    *zap.Logger
 	metricsCh chan []models.Metrics
+	ip        net.IP
 	workerWg  sync.WaitGroup
 }
 
 // NewAgent создает новый экземпляр Agent
 func NewAgent(cfg *config.AgentConfig, storage storage.Repository, logger *zap.Logger) *Agent {
+	localIP, err := getDefaultInterfaceIP()
+	if err != nil {
+		logger.Error("Failed to get local IP", zap.Error(err))
+		localIP = net.IPv4zero
+	}
+	logger.Info("Local IP", zap.String("ip", localIP.String()))
 	agent := &Agent{
 		memstats:  &runtime.MemStats{},
 		config:    cfg,
@@ -40,6 +48,7 @@ func NewAgent(cfg *config.AgentConfig, storage storage.Repository, logger *zap.L
 		metricsCh: make(chan []models.Metrics, cfg.RateLimit),
 
 		logger: logger,
+		ip:     localIP,
 	}
 	return agent
 }

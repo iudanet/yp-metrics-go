@@ -13,6 +13,7 @@ type ServerConfig struct {
 	MetricServerHost  string
 	SginKey           string
 	RSAPrivateKeyPath string
+	TrustedSubnet     IPNets
 	Storage           Storage
 }
 
@@ -25,12 +26,12 @@ type Storage struct {
 
 // структура с приоритетными обертками
 type PrioritiServerConfig struct {
-	MetricServerHost  prioritized[string]
-	SginKey           prioritized[string]
-	RSAPrivateKeyPath prioritized[string]
-
+	MetricServerHost     prioritized[string]
+	SginKey              prioritized[string]
+	RSAPrivateKeyPath    prioritized[string]
 	StoragePath          prioritized[string]
 	StorageDatabaseDSN   prioritized[string]
+	TrustedSubnet        prioritized[IPNets]
 	StorageStoreInterval prioritized[int]
 	StorageRestore       prioritized[bool]
 }
@@ -43,6 +44,7 @@ type rawServerConfig struct {
 	StoreFile     string `json:"store_file"`
 	DatabaseDSN   string `json:"database_dsn"`
 	StoreInterval string `json:"store_interval"`
+	TrustedSubnet string `json:"trusted_subnet"`
 	Restore       bool   `json:"restore"`
 }
 
@@ -58,6 +60,11 @@ func DefaultServerConfig() *PrioritiServerConfig {
 	cfg.StorageStoreInterval.Set(300, priorityDefault) // 5 минут по умолчанию
 	cfg.StorageRestore.Set(false, priorityDefault)
 
+	// default access all ip
+	ipnets := IPNets{}
+	ipnets.Set("0.0.0.0/0")
+	cfg.TrustedSubnet.Set(ipnets, priorityDefault)
+
 	return cfg
 }
 
@@ -66,6 +73,7 @@ func (c *PrioritiServerConfig) ToPlain() *ServerConfig {
 		MetricServerHost:  c.MetricServerHost.Get(),
 		SginKey:           c.SginKey.Get(),
 		RSAPrivateKeyPath: c.RSAPrivateKeyPath.Get(),
+		TrustedSubnet:     c.TrustedSubnet.Get(),
 		Storage: Storage{
 			Path:          c.StoragePath.Get(),
 			DatabaseDSN:   c.StorageDatabaseDSN.Get(),
@@ -84,6 +92,8 @@ func NewServerConfig() *ServerConfig {
 }
 
 func ParseServerFlagsArgs(args []string) (*ServerConfig, error) {
+	var ipnets IPNets
+
 	cfg := DefaultServerConfig()
 
 	fs := flag.NewFlagSet("server", flag.ContinueOnError)
@@ -97,6 +107,7 @@ func ParseServerFlagsArgs(args []string) (*ServerConfig, error) {
 	fs.IntVar(&cfg.StorageStoreInterval.value, "i", cfg.StorageStoreInterval.Get(), "Store Interval in seconds. ENV: STORE_INTERVAL")
 	fs.BoolVar(&cfg.StorageRestore.value, "r", cfg.StorageRestore.Get(), "Restore from disk. ENV: RESTORE")
 	fs.StringVar(&cfg.RSAPrivateKeyPath.value, "crypto-key", cfg.RSAPrivateKeyPath.Get(), "File Private Key. ENV: CRYPTO_KEY")
+	fs.Var(&ipnets, "t", "список CIDR в формате 192.168.0.0/24,10.0.0.0/8 (через запятую). ENV: TRUSTED_SUBNET")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, err
@@ -110,6 +121,7 @@ func ParseServerFlagsArgs(args []string) (*ServerConfig, error) {
 	cfg.StorageStoreInterval.priority = priorityFlags
 	cfg.StorageRestore.priority = priorityFlags
 	cfg.RSAPrivateKeyPath.priority = priorityFlags
+	cfg.TrustedSubnet.Set(ipnets, priorityFlags)
 
 	// 1. Конфиг из файла, по пути через флаг -config (priorityConfigFile)
 	if *configFileFlag != "" {
@@ -161,6 +173,11 @@ func ParseServerFlagsArgs(args []string) (*ServerConfig, error) {
 	if env, ok := os.LookupEnv("DATABASE_DSN"); ok && env != "" {
 		cfg.StorageDatabaseDSN.Set(env, priorityEnv)
 	}
+	if env, ok := os.LookupEnv("TRUSTED_SUBNET"); ok && env != "" {
+		var ipnets IPNets
+		ipnets.Set(env)
+		cfg.TrustedSubnet.Set(ipnets, priorityEnv)
+	}
 
 	if val, ok := os.LookupEnv("STORE_INTERVAL"); ok && val != "" {
 		i, err := strconv.Atoi(val)
@@ -208,6 +225,9 @@ func setFromRawServerConfig(cfg *PrioritiServerConfig, raw *rawServerConfig, pri
 		seconds := int(dur.Seconds())
 		cfg.StorageStoreInterval.Set(seconds, priority)
 	}
+	ipnets := IPNets{}
+	ipnets.Set(raw.TrustedSubnet)
+	cfg.TrustedSubnet.Set(ipnets, priority)
 
 	return nil
 }

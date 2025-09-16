@@ -20,7 +20,7 @@ build-server::
 			-X main.buildCommit=$(COMMIT)" \
 		-o cmd/server/server cmd/server/main.go
 run-server::
-	go run cmd/server/main.go -k testKey -crypto-key=test_private.pem
+	go run cmd/server/main.go -k testKey -crypto-key=test_private.pem -t 1.1.1.1/24,2.2.2.2/24,192.168.1.0/24
 
 run-agent::
 	go run cmd/agent/main.go -k testKey -r 2 -p 1 -crypto-key=test_public.pem

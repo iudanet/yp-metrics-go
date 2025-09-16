@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 
 	"github.com/iudanet/yp-metrics-go/internal/encryption"
@@ -103,6 +104,7 @@ func (a *Agent) sendData(jsonData []byte, endpoint string) error {
 func (a *Agent) setRequestHeaders(req *http.Request, jsonData []byte) {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Content-Encoding", "gzip")
+	req.Header.Set("X-Real-IP", a.ip.String())
 
 	if a.config.SginKey != "" {
 		hash := utils.CalculateHash(jsonData, a.config.SginKey)
@@ -143,4 +145,18 @@ func compressData(data []byte) ([]byte, error) {
 	}
 
 	return buf.Bytes(), nil
+}
+
+func getDefaultInterfaceIP() (net.IP, error) {
+	// Сделаем "виртуальное" UDP соединение к публичному адресу (8.8.8.8:53)
+	// не отправим данные, просто узнаем локальный адрес
+	conn, err := net.Dial("udp", "1.1.1.1:53")
+	if err != nil {
+		return nil, fmt.Errorf("failed to dial: %w", err)
+	}
+	defer conn.Close()
+
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+
+	return localAddr.IP, nil
 }
