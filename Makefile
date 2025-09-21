@@ -197,3 +197,12 @@ generate-test-keys:
 go_update_all::
 	go get -u ./...
 	go mod tidy
+
+
+grpc_prep::
+	go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+	sudo apt update && sudo apt install -y protobuf-compiler
+
+grpc_gen::
+	protoc --go_out=api/grpc --go-grpc_out=api/grpc api/grpc/metrics.proto

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"net/http/pprof"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/iudanet/yp-metrics-go/api/grpc/grpcmetrics"
 	"github.com/iudanet/yp-metrics-go/internal/config"
 	"github.com/iudanet/yp-metrics-go/internal/logger"
 	"github.com/iudanet/yp-metrics-go/internal/server"
@@ -20,6 +22,7 @@ import (
 	localStore "github.com/iudanet/yp-metrics-go/internal/storage/local"
 	pgStore "github.com/iudanet/yp-metrics-go/internal/storage/pg"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 )
 
 var (
@@ -112,6 +115,20 @@ func main() {
 			newLogger.Error("Server error", zap.Error(err))
 
 			cancel()
+		}
+	}()
+
+	grpcLis, err := net.Listen("tcp", ":9000") // или порт из конфига
+	if err != nil {
+		newLogger.Fatal("failed to listen grpc", zap.Error(err))
+	}
+	grpcServer := grpc.NewServer()
+	grpcmetrics.RegisterMetricsServiceServer(grpcServer, server.NewGRPCServer(repo, newLogger))
+
+	go func() {
+		newLogger.Info("Starting GRPC server on :9000")
+		if err := grpcServer.Serve(grpcLis); err != nil {
+			newLogger.Error("grpc serve failed", zap.Error(err))
 		}
 	}()
 

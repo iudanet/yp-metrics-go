@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package grpcmetrics;
+
+// option go_package = "github.com/iudanet/yp-metrics-go/api/grpc;grpcmetrics";
+option go_package = "./grpcmetrics";
+
+
+// Тип метрики
+enum MetricType {
+  GAUGE = 0;
+  COUNTER = 1;
+}
+
+// Описание метрики
+message Metric {
+  string id = 1;
+  MetricType type = 2;
+  int64 delta = 3;      // для counter
+  double value = 4;     // для gauge
+}
+
+// Запрос отправки одной метрики
+message UpdateMetricRequest {
+  Metric metric = 1;
+}
+
+// Ответ от сервера
+message UpdateMetricResponse {
+  bool success = 1;
+  string error = 2;    // пустой, если success = true
+}
+
+// Запрос на отправку батча
+message UpdateMetricsBatchRequest {
+  repeated Metric metrics = 1;
+}
+
+// Ответ на батч
+message UpdateMetricsBatchResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+// gRPC сервис для работы с метриками
+service MetricsService {
+  // Передача одной метрики
+  rpc UpdateMetric(UpdateMetricRequest) returns (UpdateMetricResponse);
+
+  // Передача батча метрик
+  rpc UpdateMetricsBatch(UpdateMetricsBatchRequest) returns (UpdateMetricsBatchResponse);
+}
