@@ -5,9 +5,11 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/iudanet/yp-metrics-go/internal/config"
 	"github.com/iudanet/yp-metrics-go/internal/models"
 	localStore "github.com/iudanet/yp-metrics-go/internal/storage/local"
+	mockStorage "github.com/iudanet/yp-metrics-go/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -32,6 +34,32 @@ func TestMemStatsMapper(t *testing.T) {
 	assert.NotEmpty(t, gauges)
 	assert.Contains(t, gauges, "Alloc")
 	assert.Contains(t, gauges, "HeapAlloc")
+}
+
+func TestMemStatsMapper_Error(t *testing.T) {
+	ctx := context.Background()
+
+	// Create a mock storage that returns errors
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockWriter := mockStorage.NewMockMetricWriter(ctrl)
+
+	cfg := &config.AgentConfig{}
+	logger, _ := zap.NewDevelopment()
+
+	agent := NewAgent(cfg, nil, logger)
+	agent.writer = mockWriter
+
+	// Инициализируем memstats
+	runtime.ReadMemStats(agent.memstats)
+
+	// Mock the first SetGauge call to return an error
+	mockWriter.EXPECT().SetGauge(gomock.Any(), gomock.Any(), gomock.Any()).Return(assert.AnError).Times(1)
+
+	err := agent.memStatsMapper(ctx)
+	assert.Error(t, err)
+	assert.Equal(t, assert.AnError, err)
 }
 
 func TestCollectPSUtilMetrics(t *testing.T) {

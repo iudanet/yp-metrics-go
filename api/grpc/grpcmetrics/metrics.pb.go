@@ -74,10 +74,10 @@ func (MetricType) EnumDescriptor() ([]byte, []int) {
 type Metric struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Type          MetricType             `protobuf:"varint,2,opt,name=type,proto3,enum=grpcmetrics.MetricType" json:"type,omitempty"`
-	Delta         int64                  `protobuf:"varint,3,opt,name=delta,proto3" json:"delta,omitempty"`  // для counter
-	Value         float64                `protobuf:"fixed64,4,opt,name=value,proto3" json:"value,omitempty"` // для gauge
 	unknownFields protoimpl.UnknownFields
+	Delta         int64      `protobuf:"varint,3,opt,name=delta,proto3" json:"delta,omitempty"`
+	Value         float64    `protobuf:"fixed64,4,opt,name=value,proto3" json:"value,omitempty"`
+	Type          MetricType `protobuf:"varint,2,opt,name=type,proto3,enum=grpcmetrics.MetricType" json:"type,omitempty"`
 	sizeCache     protoimpl.SizeCache
 }
 
@@ -187,10 +187,10 @@ func (x *UpdateMetricRequest) GetMetric() *Metric {
 // Ответ от сервера
 type UpdateMetricResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	Error         string                 `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"` // пустой, если success = true
+	Error         string                 `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
+	Success       bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
 }
 
 func (x *UpdateMetricResponse) Reset() {
@@ -285,10 +285,10 @@ func (x *UpdateMetricsBatchRequest) GetMetrics() []*Metric {
 // Ответ на батч
 type UpdateMetricsBatchResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
 	Error         string                 `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
+	Success       bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
 }
 
 func (x *UpdateMetricsBatchResponse) Reset() {

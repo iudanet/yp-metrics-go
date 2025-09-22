@@ -17,6 +17,112 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestCompressWriter_Write(t *testing.T) {
+	tests := []struct {
+		name           string
+		contentType    string
+		testData       []byte
+		shouldCompress bool
+	}{
+		{
+			name:           "compressible_content_type_with_gzip_support",
+			contentType:    "application/json",
+			shouldCompress: true,
+			testData:       []byte("test data for compression"),
+		},
+		{
+			name:           "non_compressible_content_type_with_gzip_support",
+			contentType:    "image/png",
+			shouldCompress: false,
+			testData:       []byte("test data that should not be compressed"),
+		},
+		{
+			name:           "compressible_content_type_without_gzip_support",
+			contentType:    "application/json",
+			shouldCompress: true,
+			testData:       []byte("test data without compression"),
+		},
+		{
+			name:           "empty_content_type",
+			contentType:    "",
+			shouldCompress: false,
+			testData:       []byte("test data with empty content type"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create test response writer
+			rr := httptest.NewRecorder()
+
+			// Create compressWriter
+			cw := &compressWriter{
+				w:              rr,
+				zw:             gzip.NewWriter(rr),
+				headerWritten:  false,
+				shouldCompress: false,
+			}
+
+			// Set content type header
+			if tt.contentType != "" {
+				rr.Header().Set("Content-Type", tt.contentType)
+			}
+
+			// Call Write method
+			n, err := cw.Write(tt.testData)
+			require.NoError(t, err)
+
+			// Close the gzip writer to flush data
+			if cw.shouldCompress {
+				err = cw.zw.Close()
+				require.NoError(t, err)
+			}
+
+			// Verify results
+			assert.NoError(t, err)
+			assert.Equal(t, len(tt.testData), n)
+			assert.True(t, cw.headerWritten)
+
+			// Check if compression was applied
+			contentEncoding := rr.Header().Get("Content-Encoding")
+			if cw.shouldCompress {
+				assert.Equal(t, "gzip", contentEncoding)
+				// Verify that data is actually compressed
+				assert.NotEqual(t, tt.testData, rr.Body.Bytes())
+
+				// Decompress to verify content
+				gz, err := gzip.NewReader(rr.Body)
+				require.NoError(t, err)
+				defer gz.Close()
+				decompressed, err := io.ReadAll(gz)
+				require.NoError(t, err)
+				assert.Equal(t, tt.testData, decompressed)
+			} else {
+				assert.Empty(t, contentEncoding)
+				assert.Equal(t, tt.testData, rr.Body.Bytes())
+			}
+		})
+	}
+}
+
+func TestCompressWriter_Write_HeaderAlreadyWritten(t *testing.T) {
+	rr := httptest.NewRecorder()
+	cw := &compressWriter{
+		w:              rr,
+		zw:             gzip.NewWriter(rr),
+		headerWritten:  true,
+		shouldCompress: false,
+	}
+
+	testData := []byte("test data")
+	n, err := cw.Write(testData)
+
+	assert.NoError(t, err)
+	assert.Equal(t, len(testData), n)
+	// Should not modify headers when already written
+	assert.Empty(t, rr.Header().Get("Content-Encoding"))
+}
+
 func TestGzipMiddleware(t *testing.T) {
 	// Setup
 	cfg, err := config.ParseServerFlagsArgs([]string{})

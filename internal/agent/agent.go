@@ -2,6 +2,8 @@
 // It provides the core agent implementation for gathering system metrics and reporting them to the server.
 package agent
 
+//go:generate mockgen -source=agent.go -destination=../mocks/mock_transport.go -package=mocks
+
 import (
 	"context"
 	"net"

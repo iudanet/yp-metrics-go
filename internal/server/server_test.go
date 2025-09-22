@@ -232,6 +232,169 @@ func TestUpdateMetricsBatch(t *testing.T) {
 func ptrFloat64(v float64) *float64 { return &v }
 func ptrInt64(v int64) *int64       { return &v }
 
+func TestGetMetric(t *testing.T) {
+	tests := []struct {
+		mockGaugeError   error
+		mockCounterError error
+		name             string
+		urlPath          string
+		wantBody         string
+		mockGaugeValue   float64
+		mockCounterValue int64
+		wantStatus       int
+	}{
+		{
+			name:           "valid_gauge_metric",
+			urlPath:        "/value/gauge/testGauge",
+			mockGaugeValue: 10.5,
+			mockGaugeError: nil,
+			wantStatus:     http.StatusOK,
+			wantBody:       "10.5",
+		},
+		{
+			name:             "valid_counter_metric",
+			urlPath:          "/value/counter/testCounter",
+			mockCounterValue: 42,
+			mockCounterError: nil,
+			wantStatus:       http.StatusOK,
+			wantBody:         "42\n",
+		},
+		{
+			name:           "gauge_not_found",
+			urlPath:        "/value/gauge/nonexistent",
+			mockGaugeValue: 0,
+			mockGaugeError: errors.New("not found"),
+			wantStatus:     http.StatusNotFound,
+			wantBody:       "not found\n",
+		},
+		{
+			name:             "counter_not_found",
+			urlPath:          "/value/counter/nonexistent",
+			mockCounterValue: 0,
+			mockCounterError: errors.New("not found"),
+			wantStatus:       http.StatusNotFound,
+			wantBody:         "not found\n",
+		},
+		{
+			name:       "invalid_metric_type",
+			urlPath:    "/value/invalid/test",
+			wantStatus: http.StatusBadRequest,
+			wantBody:   "invalid metric type\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			newLogger, err := logger.New("Info")
+			assert.NoError(t, err)
+
+			// Mock storage
+			store := &mockStorage{
+				getGaugeFunc: func(ctx context.Context, name string) (float64, error) {
+					return tt.mockGaugeValue, tt.mockGaugeError
+				},
+				getCounterFunc: func(ctx context.Context, name string) (int64, error) {
+					return tt.mockCounterValue, tt.mockCounterError
+				},
+			}
+
+			cfg := &config.ServerConfig{}
+			svc := NewService(store, cfg, newLogger, store)
+
+			req := httptest.NewRequest(http.MethodGet, tt.urlPath, nil)
+			w := httptest.NewRecorder()
+
+			// Создаем новый роутер и регистрируем обработчик
+			mux := http.NewServeMux()
+			mux.HandleFunc(`GET /value/{typeMetrics}/{name}`, svc.GetMetric)
+
+			// Обрабатываем запрос
+			mux.ServeHTTP(w, req)
+
+			assert.Equal(t, tt.wantStatus, w.Code)
+			assert.Equal(t, tt.wantBody, w.Body.String())
+		})
+	}
+}
+
+func TestGetIndex(t *testing.T) {
+	tests := []struct {
+		mockError    error
+		mockCounters map[string]int64
+		mockGauges   map[string]float64
+		name         string
+		urlPath      string
+		wantContains []string
+		wantStatus   int
+	}{
+		{
+			name:         "valid_index",
+			urlPath:      "/",
+			mockCounters: map[string]int64{"counter1": 10, "counter2": 20},
+			mockGauges:   map[string]float64{"gauge1": 1.5, "gauge2": 2.5},
+			mockError:    nil,
+			wantStatus:   http.StatusOK,
+			wantContains: []string{"counter1", "counter2", "gauge1", "gauge2"},
+		},
+		{
+			name:         "empty_metrics",
+			urlPath:      "/",
+			mockCounters: map[string]int64{},
+			mockGauges:   map[string]float64{},
+			mockError:    nil,
+			wantStatus:   http.StatusOK,
+			wantContains: []string{},
+		},
+		{
+			name:         "storage_error",
+			urlPath:      "/",
+			mockCounters: nil,
+			mockGauges:   nil,
+			mockError:    errors.New("storage error"),
+			wantStatus:   http.StatusNotFound,
+			wantContains: []string{"storage error"},
+		},
+		{
+			name:         "invalid_path",
+			urlPath:      "/invalid",
+			wantStatus:   http.StatusBadRequest,
+			wantContains: []string{"invalid metric type"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			newLogger, err := logger.New("Info")
+			assert.NoError(t, err)
+
+			// Mock storage
+			store := &mockStorage{
+				getMapCounterFunc: func(ctx context.Context) (map[string]int64, error) {
+					return tt.mockCounters, tt.mockError
+				},
+				getMapGaugeFunc: func(ctx context.Context) (map[string]float64, error) {
+					return tt.mockGauges, tt.mockError
+				},
+			}
+
+			cfg := &config.ServerConfig{}
+			svc := NewService(store, cfg, newLogger, store)
+
+			req := httptest.NewRequest(http.MethodGet, tt.urlPath, nil)
+			w := httptest.NewRecorder()
+
+			svc.GetIndex(w, req)
+
+			assert.Equal(t, tt.wantStatus, w.Code)
+
+			body := w.Body.String()
+			for _, contain := range tt.wantContains {
+				assert.Contains(t, body, contain)
+			}
+		})
+	}
+}
+
 func TestPingHandler(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -280,9 +443,89 @@ func TestPingHandler(t *testing.T) {
 
 type mockStorage struct {
 	storage.Repository
-	pingFunc func(ctx context.Context) error
+	pingFunc          func(ctx context.Context) error
+	getGaugeFunc      func(ctx context.Context, name string) (float64, error)
+	getCounterFunc    func(ctx context.Context, name string) (int64, error)
+	getMapCounterFunc func(ctx context.Context) (map[string]int64, error)
+	getMapGaugeFunc   func(ctx context.Context) (map[string]float64, error)
+	setGaugeFunc      func(ctx context.Context, name string, value float64) error
+	setCounterFunc    func(ctx context.Context, name string, value int64) error
+	incrCounterFunc   func(ctx context.Context, name string) error
+	saveDBFunc        func(ctx context.Context, name string) error
+	loadDBFunc        func(ctx context.Context, name string) error
+	writeBatchFunc    func(ctx context.Context, metrics []models.Metrics) error
 }
 
 func (m *mockStorage) Ping(ctx context.Context) error {
 	return m.pingFunc(ctx)
+}
+
+func (m *mockStorage) GetGauge(ctx context.Context, name string) (float64, error) {
+	if m.getGaugeFunc != nil {
+		return m.getGaugeFunc(ctx, name)
+	}
+	return 0, nil
+}
+
+func (m *mockStorage) GetCounter(ctx context.Context, name string) (int64, error) {
+	if m.getCounterFunc != nil {
+		return m.getCounterFunc(ctx, name)
+	}
+	return 0, nil
+}
+
+func (m *mockStorage) GetMapCounter(ctx context.Context) (map[string]int64, error) {
+	if m.getMapCounterFunc != nil {
+		return m.getMapCounterFunc(ctx)
+	}
+	return nil, nil
+}
+
+func (m *mockStorage) GetMapGauge(ctx context.Context) (map[string]float64, error) {
+	if m.getMapGaugeFunc != nil {
+		return m.getMapGaugeFunc(ctx)
+	}
+	return nil, nil
+}
+
+func (m *mockStorage) SetGauge(ctx context.Context, name string, value float64) error {
+	if m.setGaugeFunc != nil {
+		return m.setGaugeFunc(ctx, name, value)
+	}
+	return nil
+}
+
+func (m *mockStorage) SetCounter(ctx context.Context, name string, value int64) error {
+	if m.setCounterFunc != nil {
+		return m.setCounterFunc(ctx, name, value)
+	}
+	return nil
+}
+
+func (m *mockStorage) IncrCounter(ctx context.Context, name string) error {
+	if m.incrCounterFunc != nil {
+		return m.incrCounterFunc(ctx, name)
+	}
+	return nil
+}
+
+func (m *mockStorage) SaveDB(ctx context.Context, name string) error {
+	if m.saveDBFunc != nil {
+		return m.saveDBFunc(ctx, name)
+	}
+	return nil
+}
+
+func (m *mockStorage) LoadDB(ctx context.Context, name string) error {
+	if m.loadDBFunc != nil {
+		return m.loadDBFunc(ctx, name)
+	}
+	return nil
+}
+
+func (m *mockStorage) WriteBatch(ctx context.Context, metrics []models.Metrics) error {
+	if m.writeBatchFunc != nil {
+		return m.writeBatchFunc(ctx, metrics)
+	}
+	return nil
 }

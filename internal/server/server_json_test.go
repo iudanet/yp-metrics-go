@@ -21,6 +21,7 @@ func TestUpdateMetricJSON(t *testing.T) {
 		metric      models.Metrics
 		name        string
 		expectError bool
+		statusCode  int
 	}{
 		{
 			name: "Valid_gauge",
@@ -29,6 +30,7 @@ func TestUpdateMetricJSON(t *testing.T) {
 				MType: "gauge",
 				Value: ptrFloat64(10.5),
 			},
+			statusCode: http.StatusOK,
 		},
 		{
 			name: "Valid_counter",
@@ -37,6 +39,7 @@ func TestUpdateMetricJSON(t *testing.T) {
 				MType: "counter",
 				Delta: ptrInt64(5),
 			},
+			statusCode: http.StatusOK,
 		},
 		{
 			name: "Invalid_type",
@@ -45,6 +48,16 @@ func TestUpdateMetricJSON(t *testing.T) {
 				MType: "invalid",
 			},
 			expectError: true,
+			statusCode:  http.StatusBadRequest,
+		},
+		{
+			name: "Invalid_json",
+			metric: models.Metrics{
+				ID:    "test",
+				MType: "gauge",
+			},
+			expectError: true,
+			statusCode:  http.StatusBadRequest,
 		},
 	}
 
@@ -63,10 +76,18 @@ func TestUpdateMetricJSON(t *testing.T) {
 
 			svc.UpdateMetricJSON(w, req)
 
+			if tt.name == "Invalid_json" {
+				// Для теста с невалидным JSON создаем отдельный запрос
+				req = httptest.NewRequest(http.MethodPost, "/update/", bytes.NewReader([]byte("invalid json")))
+				req.Header.Set("Content-Type", "application/json")
+				w = httptest.NewRecorder()
+				svc.UpdateMetricJSON(w, req)
+			}
+
 			if tt.expectError {
-				assert.Equal(t, http.StatusBadRequest, w.Code)
+				assert.Equal(t, tt.statusCode, w.Code)
 			} else {
-				assert.Equal(t, http.StatusOK, w.Code)
+				assert.Equal(t, tt.statusCode, w.Code)
 
 				// Проверяем запись в хранилище
 				switch tt.metric.MType {
@@ -78,6 +99,70 @@ func TestUpdateMetricJSON(t *testing.T) {
 					assert.Equal(t, *tt.metric.Delta, value)
 				}
 			}
+		})
+	}
+}
+
+func TestUpdateMetricJSON_StorageErrors(t *testing.T) {
+	tests := []struct {
+		mockError  error
+		name       string
+		metricType string
+		wantStatus int
+	}{
+		{
+			name:       "storage_error_gauge",
+			metricType: "gauge",
+			mockError:  assert.AnError,
+			wantStatus: http.StatusInternalServerError,
+		},
+		{
+			name:       "storage_error_counter",
+			metricType: "counter",
+			mockError:  assert.AnError,
+			wantStatus: http.StatusInternalServerError,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Mock storage с ошибкой
+			store := &mockStorage{
+				setGaugeFunc: func(ctx context.Context, name string, value float64) error {
+					return tt.mockError
+				},
+				setCounterFunc: func(ctx context.Context, name string, value int64) error {
+					return tt.mockError
+				},
+			}
+
+			cfg := &config.ServerConfig{}
+			logger, _ := logger.New("info")
+			svc := NewService(store, cfg, logger, store)
+
+			var metric models.Metrics
+			if tt.metricType == "gauge" {
+				metric = models.Metrics{
+					ID:    "testGauge",
+					MType: "gauge",
+					Value: ptrFloat64(10.5),
+				}
+			} else {
+				metric = models.Metrics{
+					ID:    "testCounter",
+					MType: "counter",
+					Delta: ptrInt64(5),
+				}
+			}
+
+			body, _ := json.Marshal(metric)
+			req := httptest.NewRequest(http.MethodPost, "/update/", bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+
+			svc.UpdateMetricJSON(w, req)
+
+			assert.Equal(t, tt.wantStatus, w.Code)
 		})
 	}
 }
