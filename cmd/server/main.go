@@ -98,7 +98,10 @@ func main() {
 	if err != nil {
 		newLogger.Fatal("Failed to listen on GRPC address", zap.String("address", cfg.GRPCAddress), zap.Error(err))
 	}
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(grpc.ChainUnaryInterceptor(
+		svc.IPVerificationInterceptor(),
+		svc.LoggingInterceptor(),
+	))
 	grpcmetrics.RegisterMetricsServiceServer(grpcServer, server.NewGRPCServer(repo, newLogger))
 
 	go func() {
