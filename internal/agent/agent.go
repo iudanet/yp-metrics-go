@@ -2,8 +2,11 @@
 // It provides the core agent implementation for gathering system metrics and reporting them to the server.
 package agent
 
+//go:generate mockgen -source=agent.go -destination=../mocks/mock_transport.go -package=mocks
+
 import (
 	"context"
+	"net"
 	"net/http"
 	"runtime"
 	"sync"
@@ -15,21 +18,35 @@ import (
 	"go.uber.org/zap"
 )
 
+// Transport defines the interface for sending metrics to the server
+type Transport interface {
+	PushMetric(ctx context.Context, metric models.Metrics) error
+	PushMetricsBatch(ctx context.Context, metrics []models.Metrics) error
+}
+
 // Agent представляет агент для сбора и отправки метрик
 type Agent struct {
-	memstats  *runtime.MemStats
-	config    *config.AgentConfig
 	writer    storage.MetricWriter
 	counter   storage.CounterIncrementer
 	reader    storage.MetricReader
+	memstats  *runtime.MemStats
+	config    *config.AgentConfig
 	client    *http.Client
 	logger    *zap.Logger
+	transport Transport
 	metricsCh chan []models.Metrics
+	ip        net.IP
 	workerWg  sync.WaitGroup
 }
 
 // NewAgent создает новый экземпляр Agent
 func NewAgent(cfg *config.AgentConfig, storage storage.Repository, logger *zap.Logger) *Agent {
+	localIP, err := getDefaultInterfaceIP()
+	if err != nil {
+		logger.Error("Failed to get local IP", zap.Error(err))
+		localIP = net.IPv4zero
+	}
+	logger.Info("Local IP", zap.String("ip", localIP.String()))
 	agent := &Agent{
 		memstats:  &runtime.MemStats{},
 		config:    cfg,
@@ -40,6 +57,22 @@ func NewAgent(cfg *config.AgentConfig, storage storage.Repository, logger *zap.L
 		metricsCh: make(chan []models.Metrics, cfg.RateLimit),
 
 		logger: logger,
+		ip:     localIP,
+	}
+
+	// Initialize transport based on configuration
+	if cfg.GRPCAddress != "" {
+		grpcClient, err := NewGRPCAgentClient(cfg.GRPCAddress, logger)
+		if err != nil {
+			logger.Error("failed to create grpc client", zap.Error(err))
+			// Fall back to HTTP transport
+			agent.transport = &httpTransport{agent: agent}
+		} else {
+			agent.transport = grpcClient
+		}
+	} else {
+		// Use HTTP transport by default
+		agent.transport = &httpTransport{agent: agent}
 	}
 	return agent
 }

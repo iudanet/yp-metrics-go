@@ -20,10 +20,10 @@ build-server::
 			-X main.buildCommit=$(COMMIT)" \
 		-o cmd/server/server cmd/server/main.go
 run-server::
-	go run cmd/server/main.go -k testKey -crypto-key=test_private.pem
+	go run cmd/server/main.go --grpc-address 127.0.0.2:9999 -k testKey -crypto-key=test_private.pem -t 1.1.1.1/24,2.2.2.2/24,192.168.1.0/24,0.0.0.0/0
 
 run-agent::
-	go run cmd/agent/main.go -k testKey -r 2 -p 1 -crypto-key=test_public.pem
+	go run cmd/agent/main.go --grpc-address 127.0.0.2:9999 -k testKey -r 2 -p 1 -crypto-key=test_public.pem
 
 build::  test test_race build-agent build-server
 
@@ -174,10 +174,9 @@ fmt::
 
 
 test_coverage::
-	TEST_DATABASE_DSN='postgres://metrics:yandex@localhost:5432/metrics_db?sslmode=disable' go test -coverprofile=coverage.out ./...
-	grep -v "mock_" coverage.out > coverage_filtered.out
-	go tool cover -func=coverage_filtered.out
-	# go tool cover -html=coverage_filtered.out
+	TEST_DATABASE_DSN='postgres://metrics:yandex@localhost:5432/metrics_db?sslmode=disable' go test -coverprofile=coverage.out ./internal/...
+	go tool cover -func=coverage.out
+	# go tool cover -html=coverage.out
 
 
 generate-test-keys:
@@ -197,3 +196,12 @@ generate-test-keys:
 go_update_all::
 	go get -u ./...
 	go mod tidy
+
+
+grpc_prep::
+	go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+	sudo apt update && sudo apt install -y protobuf-compiler
+
+grpc_gen::
+	protoc --go_out=api/grpc --go-grpc_out=api/grpc api/grpc/metrics.proto

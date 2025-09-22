@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/http/pprof"
 	"strconv"
 	"text/template"
 
@@ -48,6 +49,10 @@ func (s *Service) UpdateMetricJSON(w http.ResponseWriter, req *http.Request) {
 
 	switch metrics.MType {
 	case models.TypeCounter:
+		if metrics.Delta == nil {
+			http.Error(w, "delta is required for counter", http.StatusBadRequest)
+			return
+		}
 		err := s.storage.SetCounter(req.Context(), metrics.ID, *metrics.Delta)
 		if err != nil {
 			s.logger.Error("Ошибка при установке counter", zap.Error(err))
@@ -62,6 +67,10 @@ func (s *Service) UpdateMetricJSON(w http.ResponseWriter, req *http.Request) {
 			}
 		}
 	case models.TypeGauge:
+		if metrics.Value == nil {
+			http.Error(w, "value is required for gauge", http.StatusBadRequest)
+			return
+		}
 		err := s.storage.SetGauge(req.Context(), metrics.ID, *metrics.Value)
 		if err != nil {
 			s.logger.Error("Ошибка при установке gauge", zap.Error(err))
@@ -276,4 +285,39 @@ func (s *Service) UpdateMetricsBatch(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+}
+
+// NewRouter creates and configures HTTP router with all middleware and handlers
+func (s *Service) NewRouter() *http.ServeMux {
+	m := http.NewServeMux()
+
+	// Базовые обработчики
+	m.Handle(`POST /update/{$}`, s.CheckContentType(
+		s.DecryptionMiddleware(
+			http.HandlerFunc(s.UpdateMetricJSON))))
+
+	m.Handle(`POST /updates/{$}`, s.CheckContentType(
+		s.DecryptionMiddleware(
+			s.VerifyHash(
+				http.HandlerFunc(s.UpdateMetricsBatch)))))
+	m.Handle(`POST /value/{$}`, s.CheckContentType(http.HandlerFunc(s.GetMetricJSON)))
+
+	m.HandleFunc(`POST /update/{typeMetrics}/{name}/{value}`, s.UpdateMetric)
+	m.HandleFunc(`GET /value/{typeMetrics}/{name}`, s.GetMetric)
+	m.HandleFunc(`GET /ping`, s.Ping)
+	m.HandleFunc(`GET /{$}`, s.GetIndex)
+
+	// Add pprof routes
+	m.HandleFunc("/debug/pprof/", pprof.Index)
+	m.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	m.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	m.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	m.HandleFunc("/debug/pprof/trace", pprof.Trace)
+
+	return m
+}
+
+// GetHandlerWithMiddleware returns the router with all middleware applied
+func (s *Service) GetHandlerWithMiddleware() http.Handler {
+	return s.VerifyIP(s.GzipMiddleware(s.WithLogging(s.NewRouter())))
 }

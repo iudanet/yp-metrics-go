@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
-	"net/http/pprof"
 	"os"
 	"os/signal"
 	"sync"
@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/iudanet/yp-metrics-go/api/grpc/grpcmetrics"
 	"github.com/iudanet/yp-metrics-go/internal/config"
 	"github.com/iudanet/yp-metrics-go/internal/logger"
 	"github.com/iudanet/yp-metrics-go/internal/server"
@@ -20,6 +21,7 @@ import (
 	localStore "github.com/iudanet/yp-metrics-go/internal/storage/local"
 	pgStore "github.com/iudanet/yp-metrics-go/internal/storage/pg"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 )
 
 var (
@@ -76,33 +78,10 @@ func main() {
 
 	// chi отключен для проходждения тестов. хотел сделать с нативным новым роутером.
 	_ = chi.NewRouter()
-	m := http.NewServeMux()
-	// Базовые обработчики
-	m.Handle(`POST /update/{$}`, svc.CheckContentType(
-		svc.DecryptionMiddleware(
-			http.HandlerFunc(svc.UpdateMetricJSON))))
-
-	m.Handle(`POST /updates/{$}`, svc.CheckContentType(
-		svc.DecryptionMiddleware(
-			svc.VerifyHash(
-				http.HandlerFunc(svc.UpdateMetricsBatch)))))
-	m.Handle(`POST /value/{$}`, svc.CheckContentType(http.HandlerFunc(svc.GetMetricJSON)))
-
-	m.HandleFunc(`POST /update/{typeMetrics}/{name}/{value}`, svc.UpdateMetric)
-	m.HandleFunc(`GET /value/{typeMetrics}/{name}`, svc.GetMetric)
-	m.HandleFunc(`GET /ping`, svc.Ping)
-	m.HandleFunc(`GET /{$}`, svc.GetIndex)
-
-	// Add pprof routes
-	m.HandleFunc("/debug/pprof/", pprof.Index)
-	m.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
-	m.HandleFunc("/debug/pprof/profile", pprof.Profile)
-	m.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
-	m.HandleFunc("/debug/pprof/trace", pprof.Trace)
 
 	srv := &http.Server{
 		Addr:    cfg.MetricServerHost,
-		Handler: svc.GzipMiddleware(svc.WithLogging(m)),
+		Handler: svc.GetHandlerWithMiddleware(),
 	}
 
 	go func() {
@@ -112,6 +91,23 @@ func main() {
 			newLogger.Error("Server error", zap.Error(err))
 
 			cancel()
+		}
+	}()
+
+	grpcLis, err := net.Listen("tcp", cfg.GRPCAddress) // порт из конфига
+	if err != nil {
+		newLogger.Fatal("Failed to listen on GRPC address", zap.String("address", cfg.GRPCAddress), zap.Error(err))
+	}
+	grpcServer := grpc.NewServer(grpc.ChainUnaryInterceptor(
+		svc.IPVerificationInterceptor(),
+		svc.LoggingInterceptor(),
+	))
+	grpcmetrics.RegisterMetricsServiceServer(grpcServer, server.NewGRPCServer(repo, newLogger))
+
+	go func() {
+		newLogger.Info("Starting GRPC server", zap.String("address", cfg.GRPCAddress))
+		if serveErr := grpcServer.Serve(grpcLis); serveErr != nil && serveErr != grpc.ErrServerStopped {
+			newLogger.Error("GRPC serve failed", zap.Error(serveErr))
 		}
 	}()
 
@@ -127,12 +123,31 @@ func main() {
 		memWg.Wait()
 	}
 
+	// Graceful shutdown for HTTP server
 	shutdCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer shutdownCancel()
 	err = srv.Shutdown(shutdCtx)
 	if err != nil {
-		newLogger.Error("Server shutdown error", zap.Error(err))
+		newLogger.Error("HTTP server shutdown error", zap.Error(err))
 	} else {
-		newLogger.Info("Server gracefully stopped")
+		newLogger.Info("HTTP server gracefully stopped")
+	}
+
+	// Graceful shutdown for GRPC server with timeout
+	grpcShutdownCtx, grpcShutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer grpcShutdownCancel()
+
+	grpcShutdownDone := make(chan struct{})
+	go func() {
+		grpcServer.GracefulStop()
+		close(grpcShutdownDone)
+	}()
+
+	select {
+	case <-grpcShutdownDone:
+		newLogger.Info("GRPC server gracefully stopped")
+	case <-grpcShutdownCtx.Done():
+		newLogger.Warn("GRPC server shutdown timed out, forcing stop")
+		grpcServer.Stop()
 	}
 }

@@ -20,6 +20,7 @@ func TestParseServerFlagsArgs(t *testing.T) {
 			args: []string{},
 			expected: &ServerConfig{
 				MetricServerHost: "localhost:8080",
+				GRPCAddress:      "localhost:9000",
 				Storage: Storage{
 					Path:          "/tmp/metrics-db.json",
 					StoreInterval: 300,
@@ -33,6 +34,7 @@ func TestParseServerFlagsArgs(t *testing.T) {
 			args: []string{"-a", "127.0.0.1:9090", "-f", "/tmp/custom.json", "-d", "postgres://user:pass@localhost/db", "-k", "secret", "-i", "60", "-r=true"},
 			expected: &ServerConfig{
 				MetricServerHost: "127.0.0.1:9090",
+				GRPCAddress:      "localhost:9000",
 				Storage: Storage{
 					Path:          "/tmp/custom.json",
 					StoreInterval: 60,
@@ -55,6 +57,7 @@ func TestParseServerFlagsArgs(t *testing.T) {
 			},
 			expected: &ServerConfig{
 				MetricServerHost: "0.0.0.0:8080",
+				GRPCAddress:      "localhost:9000",
 				Storage: Storage{
 					Restore:       true,
 					Path:          "/env/path.json",

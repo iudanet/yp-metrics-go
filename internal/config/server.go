@@ -11,8 +11,10 @@ import (
 
 type ServerConfig struct {
 	MetricServerHost  string
+	GRPCAddress       string
 	SginKey           string
 	RSAPrivateKeyPath string
+	TrustedSubnet     IPNets
 	Storage           Storage
 }
 
@@ -25,12 +27,13 @@ type Storage struct {
 
 // структура с приоритетными обертками
 type PrioritiServerConfig struct {
-	MetricServerHost  prioritized[string]
-	SginKey           prioritized[string]
-	RSAPrivateKeyPath prioritized[string]
-
+	MetricServerHost     prioritized[string]
+	GRPCAddress          prioritized[string]
+	SginKey              prioritized[string]
+	RSAPrivateKeyPath    prioritized[string]
 	StoragePath          prioritized[string]
 	StorageDatabaseDSN   prioritized[string]
+	TrustedSubnet        prioritized[IPNets]
 	StorageStoreInterval prioritized[int]
 	StorageRestore       prioritized[bool]
 }
@@ -38,11 +41,13 @@ type PrioritiServerConfig struct {
 // raw структура для JSON конфига
 type rawServerConfig struct {
 	Address       string `json:"address"`
+	GRPCAddress   string `json:"grpc_address"`
 	SginKey       string `json:"sgin_key"`
 	CryptoKey     string `json:"crypto_key"`
 	StoreFile     string `json:"store_file"`
 	DatabaseDSN   string `json:"database_dsn"`
 	StoreInterval string `json:"store_interval"`
+	TrustedSubnet string `json:"trusted_subnet"`
 	Restore       bool   `json:"restore"`
 }
 
@@ -50,6 +55,7 @@ func DefaultServerConfig() *PrioritiServerConfig {
 	cfg := &PrioritiServerConfig{}
 
 	cfg.MetricServerHost.Set("localhost:8080", priorityDefault)
+	cfg.GRPCAddress.Set("localhost:9000", priorityDefault)
 	cfg.SginKey.Set("", priorityDefault)
 	cfg.RSAPrivateKeyPath.Set("", priorityDefault)
 
@@ -58,14 +64,21 @@ func DefaultServerConfig() *PrioritiServerConfig {
 	cfg.StorageStoreInterval.Set(300, priorityDefault) // 5 минут по умолчанию
 	cfg.StorageRestore.Set(false, priorityDefault)
 
+	// default access all ip
+	ipnets := IPNets{}
+	ipnets.Set("0.0.0.0/0")
+	cfg.TrustedSubnet.Set(ipnets, priorityDefault)
+
 	return cfg
 }
 
 func (c *PrioritiServerConfig) ToPlain() *ServerConfig {
 	return &ServerConfig{
 		MetricServerHost:  c.MetricServerHost.Get(),
+		GRPCAddress:       c.GRPCAddress.Get(),
 		SginKey:           c.SginKey.Get(),
 		RSAPrivateKeyPath: c.RSAPrivateKeyPath.Get(),
+		TrustedSubnet:     c.TrustedSubnet.Get(),
 		Storage: Storage{
 			Path:          c.StoragePath.Get(),
 			DatabaseDSN:   c.StorageDatabaseDSN.Get(),
@@ -84,6 +97,8 @@ func NewServerConfig() *ServerConfig {
 }
 
 func ParseServerFlagsArgs(args []string) (*ServerConfig, error) {
+	var ipnets IPNets
+
 	cfg := DefaultServerConfig()
 
 	fs := flag.NewFlagSet("server", flag.ContinueOnError)
@@ -91,12 +106,14 @@ func ParseServerFlagsArgs(args []string) (*ServerConfig, error) {
 	configFileFlag := fs.String("config", "", "config JSON file path")
 
 	fs.StringVar(&cfg.MetricServerHost.value, "a", cfg.MetricServerHost.Get(), "server address. ENV: ADDRESS")
+	fs.StringVar(&cfg.GRPCAddress.value, "grpc-address", cfg.GRPCAddress.Get(), "gRPC server address. ENV: GRPC_ADDRESS")
 	fs.StringVar(&cfg.StoragePath.value, "f", cfg.StoragePath.Get(), "db file. ENV: FILE_STORAGE_PATH")
 	fs.StringVar(&cfg.StorageDatabaseDSN.value, "d", cfg.StorageDatabaseDSN.Get(), "Postgres DSN uri. ENV: DATABASE_DSN")
 	fs.StringVar(&cfg.SginKey.value, "k", cfg.SginKey.Get(), "sign key. ENV: KEY")
 	fs.IntVar(&cfg.StorageStoreInterval.value, "i", cfg.StorageStoreInterval.Get(), "Store Interval in seconds. ENV: STORE_INTERVAL")
 	fs.BoolVar(&cfg.StorageRestore.value, "r", cfg.StorageRestore.Get(), "Restore from disk. ENV: RESTORE")
 	fs.StringVar(&cfg.RSAPrivateKeyPath.value, "crypto-key", cfg.RSAPrivateKeyPath.Get(), "File Private Key. ENV: CRYPTO_KEY")
+	fs.Var(&ipnets, "t", "список CIDR в формате 192.168.0.0/24,10.0.0.0/8 (через запятую). ENV: TRUSTED_SUBNET")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, err
@@ -104,12 +121,14 @@ func ParseServerFlagsArgs(args []string) (*ServerConfig, error) {
 
 	// Устанавливаем приоритет 2 для значений из флагов
 	cfg.MetricServerHost.priority = priorityFlags
+	cfg.GRPCAddress.priority = priorityFlags
 	cfg.StoragePath.priority = priorityFlags
 	cfg.StorageDatabaseDSN.priority = priorityFlags
 	cfg.SginKey.priority = priorityFlags
 	cfg.StorageStoreInterval.priority = priorityFlags
 	cfg.StorageRestore.priority = priorityFlags
 	cfg.RSAPrivateKeyPath.priority = priorityFlags
+	cfg.TrustedSubnet.Set(ipnets, priorityFlags)
 
 	// 1. Конфиг из файла, по пути через флаг -config (priorityConfigFile)
 	if *configFileFlag != "" {
@@ -152,6 +171,9 @@ func ParseServerFlagsArgs(args []string) (*ServerConfig, error) {
 	if env, ok := os.LookupEnv("ADDRESS"); ok && env != "" {
 		cfg.MetricServerHost.Set(env, priorityEnv)
 	}
+	if env, ok := os.LookupEnv("GRPC_ADDRESS"); ok && env != "" {
+		cfg.GRPCAddress.Set(env, priorityEnv)
+	}
 	if env, ok := os.LookupEnv("KEY"); ok && env != "" {
 		cfg.SginKey.Set(env, priorityEnv)
 	}
@@ -160,6 +182,11 @@ func ParseServerFlagsArgs(args []string) (*ServerConfig, error) {
 	}
 	if env, ok := os.LookupEnv("DATABASE_DSN"); ok && env != "" {
 		cfg.StorageDatabaseDSN.Set(env, priorityEnv)
+	}
+	if env, ok := os.LookupEnv("TRUSTED_SUBNET"); ok && env != "" {
+		var ipnets IPNets
+		ipnets.Set(env)
+		cfg.TrustedSubnet.Set(ipnets, priorityEnv)
 	}
 
 	if val, ok := os.LookupEnv("STORE_INTERVAL"); ok && val != "" {
@@ -185,6 +212,9 @@ func setFromRawServerConfig(cfg *PrioritiServerConfig, raw *rawServerConfig, pri
 	if raw.Address != "" {
 		cfg.MetricServerHost.Set(raw.Address, priority)
 	}
+	if raw.GRPCAddress != "" {
+		cfg.GRPCAddress.Set(raw.GRPCAddress, priority)
+	}
 	if raw.SginKey != "" {
 		cfg.SginKey.Set(raw.SginKey, priority)
 	}
@@ -208,6 +238,9 @@ func setFromRawServerConfig(cfg *PrioritiServerConfig, raw *rawServerConfig, pri
 		seconds := int(dur.Seconds())
 		cfg.StorageStoreInterval.Set(seconds, priority)
 	}
+	ipnets := IPNets{}
+	ipnets.Set(raw.TrustedSubnet)
+	cfg.TrustedSubnet.Set(ipnets, priority)
 
 	return nil
 }
