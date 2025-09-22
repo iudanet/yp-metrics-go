@@ -4,14 +4,16 @@
 // 	protoc        v3.21.12
 // source: api/grpc/metrics.proto
 
+// Package grpcmetrics contains generated protobuf code for metrics service.
 package grpcmetrics
 
 import (
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
+
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (

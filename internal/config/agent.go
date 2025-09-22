@@ -14,6 +14,7 @@ type AgentConfig struct {
 	MetricServerHost string
 	SginKey          string
 	RSAPublicKeyPath string
+	GRPCAddress      string
 	ReportInterval   int
 	PollInterval     int
 	RateLimit        int
@@ -22,6 +23,7 @@ type PrioritiAgentConfig struct {
 	MetricServerHost prioritized[string]
 	SginKey          prioritized[string]
 	RSAPublicKeyPath prioritized[string]
+	GRPCAddress      prioritized[string]
 	ReportInterval   prioritized[int]
 	PollInterval     prioritized[int]
 	RateLimit        prioritized[int]
@@ -34,6 +36,7 @@ func (cfg *PrioritiAgentConfig) ToPlain() AgentConfig {
 		MetricServerHost: cfg.MetricServerHost.Get(),
 		SginKey:          cfg.SginKey.Get(),
 		RSAPublicKeyPath: cfg.RSAPublicKeyPath.Get(),
+		GRPCAddress:      cfg.GRPCAddress.Get(),
 		RateLimit:        cfg.RateLimit.Get(),
 	}
 }
@@ -52,6 +55,7 @@ func DefaultConfig() *PrioritiAgentConfig {
 	cfg.PollInterval.Set(2, priorityDefault)
 	cfg.ReportInterval.Set(10, priorityDefault)
 	cfg.MetricServerHost.Set("localhost:8080", priorityDefault)
+	cfg.GRPCAddress.Set("", priorityDefault)
 	cfg.SginKey.Set("", priorityDefault)
 	cfg.RateLimit.Set(1, priorityDefault)
 	return cfg
@@ -62,6 +66,7 @@ type rawAgentConfig struct {
 	MetricServerHost string `json:"address"`
 	SginKey          string `json:"sgin_key"`
 	RSAPublicKeyPath string `json:"crypto_key"`
+	GRPCAddress      string `json:"grpc_address"`
 	ReportInterval   int    `json:"report_interval"`
 	PollInterval     int    `json:"poll_interval"`
 	RateLimit        int    `json:"rate_limit"`
@@ -75,6 +80,7 @@ func ParseAgentFlagsArgs(args []string) (*AgentConfig, error) {
 	pollFlag := fs.Int("p", cfg.PollInterval.Get(), "poll interval seconds")
 	reportFlag := fs.Int("r", cfg.ReportInterval.Get(), "report interval seconds")
 	addressFlag := fs.String("a", cfg.MetricServerHost.Get(), "server address")
+	grpcAddressFlag := fs.String("grpc-address", cfg.GRPCAddress.Get(), "gRPC server address")
 	signKeyFlag := fs.String("k", cfg.SginKey.Get(), "sign key")
 	rateLimitFlag := fs.Int("l", cfg.RateLimit.Get(), "rate limit for outgoing requests")
 	cryptoKeyFlag := fs.String("crypto-key", "", "file public key path")
@@ -118,6 +124,7 @@ func ParseAgentFlagsArgs(args []string) (*AgentConfig, error) {
 	cfg.PollInterval.Set(*pollFlag, priorityFlags)
 	cfg.ReportInterval.Set(*reportFlag, priorityFlags)
 	cfg.MetricServerHost.Set(*addressFlag, priorityFlags)
+	cfg.GRPCAddress.Set(*grpcAddressFlag, priorityFlags)
 	cfg.SginKey.Set(*signKeyFlag, priorityFlags)
 	cfg.RateLimit.Set(*rateLimitFlag, priorityFlags)
 	if *cryptoKeyFlag != "" {
@@ -130,6 +137,9 @@ func ParseAgentFlagsArgs(args []string) (*AgentConfig, error) {
 	}
 	if env, ok := os.LookupEnv("ADDRESS"); ok && env != "" {
 		cfg.MetricServerHost.Set(env, priorityEnv)
+	}
+	if env, ok := os.LookupEnv("GRPC_ADDRESS"); ok && env != "" {
+		cfg.GRPCAddress.Set(env, priorityEnv)
 	}
 	if env, ok := os.LookupEnv("KEY"); ok && env != "" {
 		cfg.SginKey.Set(env, priorityEnv)
@@ -173,6 +183,9 @@ func setFromRaw(cfg *PrioritiAgentConfig, raw *rawAgentConfig, priority int) {
 	}
 	if raw.MetricServerHost != "" {
 		cfg.MetricServerHost.Set(raw.MetricServerHost, priority)
+	}
+	if raw.GRPCAddress != "" {
+		cfg.GRPCAddress.Set(raw.GRPCAddress, priority)
 	}
 	if raw.SginKey != "" {
 		cfg.SginKey.Set(raw.SginKey, priority)

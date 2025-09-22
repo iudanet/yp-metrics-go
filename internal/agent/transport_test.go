@@ -12,8 +12,10 @@ import (
 
 	"github.com/iudanet/yp-metrics-go/internal/config"
 	"github.com/iudanet/yp-metrics-go/internal/retry"
+	localStore "github.com/iudanet/yp-metrics-go/internal/storage/local"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 )
 
 func TestAgentRetryLogic(t *testing.T) {
@@ -61,10 +63,10 @@ func TestAgentRetryLogic(t *testing.T) {
 				MetricServerHost: server.URL[7:], // Удаляем "http://" из адреса
 			}
 
-			agent := &Agent{
-				config: cfg,
-				client: &http.Client{Timeout: 1 * time.Second},
-			}
+			store := localStore.New()
+			logger, _ := zap.NewDevelopment()
+			agent := NewAgent(cfg, store, logger)
+			agent.client = &http.Client{Timeout: 1 * time.Second}
 
 			testValue := float64(42.42)
 			err := agent.PushGauge("retry_test", testValue)
@@ -88,10 +90,10 @@ func TestRetryWithNetworkError(t *testing.T) {
 		MetricServerHost: "invalid-host:8080",
 	}
 
-	agent := &Agent{
-		config: cfg,
-		client: &http.Client{Timeout: 100 * time.Millisecond},
-	}
+	store := localStore.New()
+	logger, _ := zap.NewDevelopment()
+	agent := NewAgent(cfg, store, logger)
+	agent.client = &http.Client{Timeout: 100 * time.Millisecond}
 
 	err := agent.PushGauge("network_error_test", 42.42)
 	assert.Error(t, err)

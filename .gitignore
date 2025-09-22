@@ -28,3 +28,5 @@ vendor/
 *.json
 
 *.pem
+
+bin

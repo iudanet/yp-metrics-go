@@ -4,10 +4,12 @@
 // - protoc             v3.21.12
 // source: api/grpc/metrics.proto
 
+// Package grpcmetrics contains generated gRPC code for metrics service.
 package grpcmetrics
 
 import (
 	context "context"
+
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"

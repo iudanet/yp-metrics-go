@@ -11,6 +11,7 @@ import (
 
 type ServerConfig struct {
 	MetricServerHost  string
+	GRPCAddress       string
 	SginKey           string
 	RSAPrivateKeyPath string
 	TrustedSubnet     IPNets
@@ -27,6 +28,7 @@ type Storage struct {
 // структура с приоритетными обертками
 type PrioritiServerConfig struct {
 	MetricServerHost     prioritized[string]
+	GRPCAddress          prioritized[string]
 	SginKey              prioritized[string]
 	RSAPrivateKeyPath    prioritized[string]
 	StoragePath          prioritized[string]
@@ -39,6 +41,7 @@ type PrioritiServerConfig struct {
 // raw структура для JSON конфига
 type rawServerConfig struct {
 	Address       string `json:"address"`
+	GRPCAddress   string `json:"grpc_address"`
 	SginKey       string `json:"sgin_key"`
 	CryptoKey     string `json:"crypto_key"`
 	StoreFile     string `json:"store_file"`
@@ -52,6 +55,7 @@ func DefaultServerConfig() *PrioritiServerConfig {
 	cfg := &PrioritiServerConfig{}
 
 	cfg.MetricServerHost.Set("localhost:8080", priorityDefault)
+	cfg.GRPCAddress.Set("localhost:9000", priorityDefault)
 	cfg.SginKey.Set("", priorityDefault)
 	cfg.RSAPrivateKeyPath.Set("", priorityDefault)
 
@@ -71,6 +75,7 @@ func DefaultServerConfig() *PrioritiServerConfig {
 func (c *PrioritiServerConfig) ToPlain() *ServerConfig {
 	return &ServerConfig{
 		MetricServerHost:  c.MetricServerHost.Get(),
+		GRPCAddress:       c.GRPCAddress.Get(),
 		SginKey:           c.SginKey.Get(),
 		RSAPrivateKeyPath: c.RSAPrivateKeyPath.Get(),
 		TrustedSubnet:     c.TrustedSubnet.Get(),
@@ -101,6 +106,7 @@ func ParseServerFlagsArgs(args []string) (*ServerConfig, error) {
 	configFileFlag := fs.String("config", "", "config JSON file path")
 
 	fs.StringVar(&cfg.MetricServerHost.value, "a", cfg.MetricServerHost.Get(), "server address. ENV: ADDRESS")
+	fs.StringVar(&cfg.GRPCAddress.value, "grpc-address", cfg.GRPCAddress.Get(), "gRPC server address. ENV: GRPC_ADDRESS")
 	fs.StringVar(&cfg.StoragePath.value, "f", cfg.StoragePath.Get(), "db file. ENV: FILE_STORAGE_PATH")
 	fs.StringVar(&cfg.StorageDatabaseDSN.value, "d", cfg.StorageDatabaseDSN.Get(), "Postgres DSN uri. ENV: DATABASE_DSN")
 	fs.StringVar(&cfg.SginKey.value, "k", cfg.SginKey.Get(), "sign key. ENV: KEY")
@@ -115,6 +121,7 @@ func ParseServerFlagsArgs(args []string) (*ServerConfig, error) {
 
 	// Устанавливаем приоритет 2 для значений из флагов
 	cfg.MetricServerHost.priority = priorityFlags
+	cfg.GRPCAddress.priority = priorityFlags
 	cfg.StoragePath.priority = priorityFlags
 	cfg.StorageDatabaseDSN.priority = priorityFlags
 	cfg.SginKey.priority = priorityFlags
@@ -164,6 +171,9 @@ func ParseServerFlagsArgs(args []string) (*ServerConfig, error) {
 	if env, ok := os.LookupEnv("ADDRESS"); ok && env != "" {
 		cfg.MetricServerHost.Set(env, priorityEnv)
 	}
+	if env, ok := os.LookupEnv("GRPC_ADDRESS"); ok && env != "" {
+		cfg.GRPCAddress.Set(env, priorityEnv)
+	}
 	if env, ok := os.LookupEnv("KEY"); ok && env != "" {
 		cfg.SginKey.Set(env, priorityEnv)
 	}
@@ -201,6 +211,9 @@ func ParseServerFlagsArgs(args []string) (*ServerConfig, error) {
 func setFromRawServerConfig(cfg *PrioritiServerConfig, raw *rawServerConfig, priority int) error {
 	if raw.Address != "" {
 		cfg.MetricServerHost.Set(raw.Address, priority)
+	}
+	if raw.GRPCAddress != "" {
+		cfg.GRPCAddress.Set(raw.GRPCAddress, priority)
 	}
 	if raw.SginKey != "" {
 		cfg.SginKey.Set(raw.SginKey, priority)

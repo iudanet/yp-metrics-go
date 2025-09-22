@@ -3,6 +3,7 @@ package agent
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -13,6 +14,32 @@ import (
 	"github.com/iudanet/yp-metrics-go/internal/retry"
 	"github.com/iudanet/yp-metrics-go/internal/utils"
 )
+
+// httpTransport implements Transport interface using HTTP
+type httpTransport struct {
+	agent *Agent
+}
+
+// PushMetric отправляет одиночную метрику на сервер через HTTP
+func (h *httpTransport) PushMetric(ctx context.Context, metric models.Metrics) error {
+	return h.sendSingleMetric(&metric)
+}
+
+// PushMetricsBatch отправляет метрики батчем на сервер через HTTP
+func (h *httpTransport) PushMetricsBatch(ctx context.Context, metrics []models.Metrics) error {
+	if len(metrics) == 0 {
+		return nil
+	}
+
+	jsonData, err := json.Marshal(metrics)
+	if err != nil {
+		return fmt.Errorf("failed to marshal metrics to JSON: %w", err)
+	}
+
+	endpoint := "/updates/"
+
+	return h.sendData(jsonData, endpoint)
+}
 
 // PushCounter отправляет значение counter на сервер
 func (a *Agent) PushCounter(name string, value int64) error {
@@ -38,6 +65,11 @@ func (a *Agent) PushGauge(name string, value float64) error {
 
 // sendSingleMetric отправляет одиночную метрику на сервер
 func (a *Agent) sendSingleMetric(metric *models.Metrics) error {
+	return a.transport.PushMetric(context.Background(), *metric)
+}
+
+// sendSingleMetric отправляет одиночную метрику на сервер (для httpTransport)
+func (h *httpTransport) sendSingleMetric(metric *models.Metrics) error {
 	jsonData, err := json.Marshal(metric)
 	if err != nil {
 		return fmt.Errorf("failed to marshal metric to JSON: %w", err)
@@ -45,33 +77,22 @@ func (a *Agent) sendSingleMetric(metric *models.Metrics) error {
 
 	endpoint := "/update/"
 
-	return a.sendData(jsonData, endpoint)
+	return h.sendData(jsonData, endpoint)
 }
 
 // PushMetricsBatch отправляет метрики батчем на сервер
 func (a *Agent) PushMetricsBatch(metrics []models.Metrics) error {
-	if len(metrics) == 0 {
-		return nil
-	}
-
-	jsonData, err := json.Marshal(metrics)
-	if err != nil {
-		return fmt.Errorf("failed to marshal metrics to JSON: %w", err)
-	}
-
-	endpoint := "/updates/"
-
-	return a.sendData(jsonData, endpoint)
+	return a.transport.PushMetricsBatch(context.Background(), metrics)
 }
 
 // sendData отправляет данные на указанный endpoint с учетом шифрования
-func (a *Agent) sendData(jsonData []byte, endpoint string) error {
+func (h *httpTransport) sendData(jsonData []byte, endpoint string) error {
 	var dataToSend []byte
 	var err error
 
 	// Если настроено шифрование, шифруем данные
-	if a.config.RSAPublicKeyPath != "" {
-		dataToSend, err = encryption.Hybrid(jsonData, a.config.RSAPublicKeyPath)
+	if h.agent.config.RSAPublicKeyPath != "" {
+		dataToSend, err = encryption.Hybrid(jsonData, h.agent.config.RSAPublicKeyPath)
 		if err != nil {
 			return fmt.Errorf("failed to encrypt data: %w", err)
 		}
@@ -86,35 +107,35 @@ func (a *Agent) sendData(jsonData []byte, endpoint string) error {
 		return fmt.Errorf("failed to compress data: %w", err)
 	}
 
-	url := fmt.Sprintf("http://%s%s", a.config.MetricServerHost, endpoint)
+	url := fmt.Sprintf("http://%s%s", h.agent.config.MetricServerHost, endpoint)
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(compressedData))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
 	// Устанавливаем заголовки
-	a.setRequestHeaders(req, jsonData)
+	h.setRequestHeaders(req, jsonData)
 
 	return retry.WithRetry(func() error {
-		return a.sendRequest(req)
+		return h.sendRequest(req)
 	})
 }
 
 // setRequestHeaders устанавливает заголовки для запроса
-func (a *Agent) setRequestHeaders(req *http.Request, jsonData []byte) {
+func (h *httpTransport) setRequestHeaders(req *http.Request, jsonData []byte) {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Content-Encoding", "gzip")
-	req.Header.Set("X-Real-IP", a.ip.String())
+	req.Header.Set("X-Real-IP", h.agent.ip.String())
 
-	if a.config.SginKey != "" {
-		hash := utils.CalculateHash(jsonData, a.config.SginKey)
+	if h.agent.config.SginKey != "" {
+		hash := utils.CalculateHash(jsonData, h.agent.config.SginKey)
 		req.Header.Set("HashSHA256", hash)
 	}
 }
 
 // sendRequest выполняет HTTP запрос
-func (a *Agent) sendRequest(req *http.Request) error {
-	resp, err := a.client.Do(req)
+func (h *httpTransport) sendRequest(req *http.Request) error {
+	resp, err := h.agent.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to send request: %w", err)
 	}

@@ -118,7 +118,7 @@ func main() {
 		}
 	}()
 
-	grpcLis, err := net.Listen("tcp", ":9000") // или порт из конфига
+	grpcLis, err := net.Listen("tcp", cfg.GRPCAddress) // порт из конфига
 	if err != nil {
 		newLogger.Fatal("failed to listen grpc", zap.Error(err))
 	}
@@ -126,9 +126,9 @@ func main() {
 	grpcmetrics.RegisterMetricsServiceServer(grpcServer, server.NewGRPCServer(repo, newLogger))
 
 	go func() {
-		newLogger.Info("Starting GRPC server on :9000")
-		if err := grpcServer.Serve(grpcLis); err != nil {
-			newLogger.Error("grpc serve failed", zap.Error(err))
+		newLogger.Info("Starting GRPC server", zap.String("address", cfg.GRPCAddress))
+		if serveErr := grpcServer.Serve(grpcLis); serveErr != nil {
+			newLogger.Error("grpc serve failed", zap.Error(serveErr))
 		}
 	}()
 
